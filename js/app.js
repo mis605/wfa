@@ -103,7 +103,6 @@ async function loadUserSession() {
       document.getElementById('login-error').textContent = 
         'Akun Anda belum terdaftar sebagai karyawan di SharePoint. Silakan hubungi admin.';
       document.getElementById('login-error').classList.remove('hidden');
-      await authService.logout();
       return;
     }
 
@@ -111,7 +110,6 @@ async function loadUserSession() {
       showView('login');
       document.getElementById('login-error').textContent = 'Akun Anda berstatus Tidak Aktif. Silakan hubungi admin.';
       document.getElementById('login-error').classList.remove('hidden');
-      await authService.logout();
       return;
     }
 
