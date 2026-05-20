@@ -91,14 +91,25 @@ async function loadUserSession() {
   
   try {
     // Ambil profil MS pengguna
+    console.log('[App] Loading user session. Fetching user profile...');
     state.user = await authService.getUserProfile();
+    console.log('[App] User profile retrieved:', state.user);
     
     document.getElementById('loading-text').textContent = 'Memverifikasi data karyawan...';
     // Cek data karyawan di list SharePoint
     const userEmail = state.user.mail || state.user.userPrincipalName;
-    state.karyawan = await graphService.getKaryawanByEmail(userEmail);
+    console.log('[App] Verifying employee status for email:', userEmail);
+    
+    try {
+      state.karyawan = await graphService.getKaryawanByEmail(userEmail);
+      console.log('[App] Employee verification result:', state.karyawan);
+    } catch (karyawanError) {
+      console.error('[App] Error in getKaryawanByEmail:', karyawanError);
+      throw karyawanError;
+    }
     
     if (!state.karyawan) {
+      console.warn('[App] Employee not found in SharePoint list');
       showView('login');
       document.getElementById('login-error').textContent = 
         'Akun Anda belum terdaftar sebagai karyawan di SharePoint. Silakan hubungi admin.';
@@ -107,6 +118,7 @@ async function loadUserSession() {
     }
 
     if (state.karyawan.statusAktif !== 'Aktif') {
+      console.warn('[App] Employee account is not Active:', state.karyawan.statusAktif);
       showView('login');
       document.getElementById('login-error').textContent = 'Akun Anda berstatus Tidak Aktif. Silakan hubungi admin.';
       document.getElementById('login-error').classList.remove('hidden');

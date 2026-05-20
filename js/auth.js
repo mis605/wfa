@@ -116,25 +116,15 @@ class AuthService {
 
     try {
       // Coba dapatkan token secara silent
+      console.log('[AuthService] Attempting acquireTokenSilent...');
       const response = await this.msalInstance.acquireTokenSilent(tokenRequest);
+      console.log('[AuthService] acquireTokenSilent success');
       return response.accessToken;
     } catch (silentError) {
-      if (silentError instanceof msal.InteractionRequiredAuthError) {
-        if (this.isMobileDevice()) {
-          // HP: Gunakan redirect untuk token jika interaksi dibutuhkan
-          await this.msalInstance.acquireTokenRedirect(tokenRequest);
-        } else {
-          // Laptop: Gunakan popup token dengan fallback ke redirect
-          try {
-            const response = await this.msalInstance.acquireTokenPopup(tokenRequest);
-            return response.accessToken;
-          } catch (popupError) {
-            await this.msalInstance.acquireTokenRedirect(tokenRequest);
-          }
-        }
-      } else {
-        throw silentError;
-      }
+      console.warn('[AuthService] acquireTokenSilent failed:', silentError);
+      // Jika token silent gagal (misalnya sesi kedaluwarsa), lempar error agar UI mengarahkan pengguna untuk klik login manual.
+      // Jangan pernah meluncurkan popup/redirect interaktif secara otomatis di latar belakang karena akan diblokir browser atau menyangkut.
+      throw new Error('Sesi autentikasi Anda telah berakhir atau memerlukan persetujuan baru. Silakan klik tombol Masuk kembali.');
     }
   }
 

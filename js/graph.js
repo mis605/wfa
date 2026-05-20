@@ -11,17 +11,33 @@ class GraphService {
 
   // Helper: fetch dengan auth token
   async apiFetch(url, options = {}) {
-    const token = await authService.getAccessToken();
+    console.log('[GraphService] apiFetch started for:', url);
+    let token;
+    try {
+      token = await authService.getAccessToken();
+      console.log('[GraphService] Token obtained successfully');
+    } catch (tokenError) {
+      console.error('[GraphService] Failed to obtain token:', tokenError);
+      throw tokenError;
+    }
     
     const defaultHeaders = {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     };
 
-    const response = await fetch(url, {
-      ...options,
-      headers: { ...defaultHeaders, ...options.headers },
-    });
+    console.log('[GraphService] Sending fetch request...');
+    let response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers: { ...defaultHeaders, ...options.headers },
+      });
+      console.log('[GraphService] Response received. Status:', response.status);
+    } catch (fetchError) {
+      console.error('[GraphService] Fetch network error:', fetchError);
+      throw fetchError;
+    }
 
     if (!response.ok) {
       const errorBody = await response.text();
@@ -30,6 +46,7 @@ class GraphService {
         const errorJson = JSON.parse(errorBody);
         errorMsg = errorJson.error?.message || errorMsg;
       } catch {}
+      console.error('[GraphService] Graph API Error response:', errorBody);
       throw new Error(`Graph API Error: ${errorMsg}`);
     }
 
@@ -44,8 +61,10 @@ class GraphService {
 
   // Ambil semua item dari SharePoint List
   async getListItems(listId) {
+    console.log('[GraphService] getListItems started for list:', listId);
     const url = `${this.getSharePointBase()}/lists/${listId}/items?expand=fields`;
     const data = await this.apiFetch(url);
+    console.log('[GraphService] getListItems data retrieved successfully, count:', data?.value?.length);
     return data?.value?.map(item => ({
       listItemId: item.id, // ID internal SharePoint item
       ...item.fields

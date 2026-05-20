@@ -2,21 +2,21 @@
 // SW.JS - Service Worker (PWA)
 // ============================================================
 
-const CACHE_NAME = 'absen-wfa-v1.5';
+const CACHE_NAME = 'absen-wfa-v1.7';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/css/style.css',
-  '/js/config.js',
-  '/js/auth.js',
-  '/js/graph.js',
-  '/js/utils.js',
-  '/js/app.js',
-  '/js/msal-browser.min.js',
-  '/manifest.json',
-  '/icons/icon.svg',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  './',
+  './index.html',
+  './css/style.css',
+  './js/config.js',
+  './js/auth.js',
+  './js/graph.js',
+  './js/utils.js',
+  './js/app.js',
+  './js/msal-browser.min.js',
+  './manifest.json',
+  './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   // Google Fonts
   'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
 ];
