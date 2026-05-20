@@ -49,7 +49,9 @@ function showView(viewName) {
     if (isAuthView) {
       el.classList.toggle('hidden', name !== viewName);
     } else {
-      if (['calendar', 'absen', 'request', 'approval'].includes(name)) {
+      if (name === 'login' || name === 'loading') {
+        el.classList.add('hidden');
+      } else {
         el.classList.toggle('hidden', name !== viewName);
       }
     }
