@@ -152,21 +152,14 @@
           <div class="absen-btns">
             <button class="btn-absen btn-absen--masuk" id="btn-absen-masuk">
               <span class="btn-absen__icon">🟢</span>
-              Absen Masuk
+              <span>Absen Masuk</span>
+              <span class="btn-absen__time" id="info-jam-masuk">07:00–10:00</span>
             </button>
             <button class="btn-absen btn-absen--keluar btn--disabled" id="btn-absen-keluar" disabled>
               <span class="btn-absen__icon">🔴</span>
-              Absen Keluar
+              <span>Absen Keluar</span>
+              <span class="btn-absen__time" id="info-jam-keluar">16:00–20:00</span>
             </button>
-          </div>
-
-          <!-- Info jam absen -->
-          <div class="today-card" style="margin-bottom: 0;">
-            <div class="today-card__title" style="margin-bottom: 10px; display:block;">Jam Absensi</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.82rem; color:var(--text-secondary);">
-              <div>🕗 Masuk: <strong id="info-jam-masuk" style="color:var(--green)">07:00–10:00</strong></div>
-              <div>🕔 Keluar: <strong id="info-jam-keluar" style="color:var(--purple)">16:00–20:00</strong></div>
-            </div>
           </div>
         </div>
 
@@ -388,6 +381,25 @@
       </div>
       <button type="button" class="btn-primary" id="btn-simpan-karyawan">Simpan</button>
     </form>
+  </div>
+</div>
+
+<!-- ========== MODAL DETAIL CALENDAR WFA ========== -->
+<div id="modal-calendar-detail" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-calendar-title">
+  <div class="modal__sheet">
+    <div class="modal__handle"></div>
+    <div class="modal__header">
+      <h2 class="modal__title" id="modal-calendar-title">Karyawan WFA</h2>
+      <button class="btn-icon" id="btn-close-calendar-modal" aria-label="Tutup">✕</button>
+    </div>
+    
+    <div id="calendar-detail-date" style="font-size: 0.95rem; color: var(--accent); font-weight: 600; margin-bottom: 16px; font-family: var(--font-mono);">
+      Rabu, 20 Mei 2026
+    </div>
+    
+    <div id="calendar-detail-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 4px;">
+      <!-- List of employees WFA will be appended here dynamically -->
+    </div>
   </div>
 </div>
 

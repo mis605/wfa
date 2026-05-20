@@ -14,6 +14,17 @@ Proyek ini adalah aplikasi web (PWA) untuk sistem absensi *Work From Anywhere* (
 | `js/utils.js` | **Utilities**: Berisi fungsi pembantu seperti format tanggal/jam, perhitungan durasi kerja, notifikasi toast, dan indikator loading. |
 | `js/msal-browser.min.js` | **Library**: Pustaka resmi Microsoft untuk proses autentikasi di sisi klien. |
 
+## Perubahan Terbaru (Recent Changes)
+
+*   **Penyelesaian Stuck Verifikasi Login:** Memperbaiki transisi view pada `js/app.js` untuk memastikan loading spinner tertutup setelah login & verifikasi profil karyawan selesai.
+*   **Sinkronisasi Skema Kolom (NIP/NRK):** Menyelaraskan field request dengan skema kolom SharePoint List yang menggunakan penamaan `NRK` untuk menghindari error Graph API request.
+*   **Dinamisasi & Proteksi Email CC:** Memindahkan email tujuan CC (HRD & MIS) ke `js/config.js` dan menambahkan filtrasi otomatis di `js/graph.js` untuk mencegah duplikasi email CC dengan alamat tujuan (`To`) agar tidak ditolak oleh Graph API.
+*   **Liquid & Responsive Layout:** Mengubah `css/style.css` menjadi fully-liquid (100% width) di mobile dan menerapkan sistem multi-kolom grid side-by-side pada layar tablet/desktop, serta memperbesar visualisasi sel kalender agar ramah perangkat desktop.
+*   **Filtering Kalender Berdasarkan Atasan:** Menambahkan filter otomatis pada tab Kalender WFA. Karyawan hanya bisa melihat jadwal WFA miliknya sendiri, rekan kerja dengan atasan yang sama, dan bawahan langsungnya (jika pengguna adalah atasan).
+*   **Popup Detail Kalender WFA:** Menambahkan fitur popup/bottom sheet interaktif saat mengklik tanggal di kalender untuk menampilkan daftar lengkap karyawan (Nama & NIP/NRK) yang WFA pada hari tersebut.
+*   **Integrasi Jam Absensi & Simetrisasi Layout:** Menghapus card "Jam Absensi" yang terpisah dan mengintegrasikan jam toleransi absensi langsung ke dalam tombol "Absen Masuk" & "Absen Keluar" sebagai subtext. Memperbaiki penyelarasan tata letak grid desktop agar status hari ini dan tombol absensi sejajar secara presisi.
+*   **Version Bump Cache PWA:** Menaikkan versi cache di `sw.js` ke `absen-wfa-v2.7` agar pembaruan layout dan script langsung terdeteksi oleh perangkat pengguna.
+
 ## Rekomendasi Peningkatan (Improvements)
 
 1.  **Optimasi Query Data (Kritis)**:
@@ -28,8 +39,11 @@ Proyek ini adalah aplikasi web (PWA) untuk sistem absensi *Work From Anywhere* (
 4.  **Verifikasi Lokasi (Geolokasi)**:
     Meskipun WFA, perusahaan mungkin butuh data lokasi saat absen. Manfaatkan *Geolocation API* browser untuk mencatat koordinat GPS saat karyawan menekan tombol absen.
 
-5.  **Validasi Form yang Lebih Ketat**:
+5.  **Aktivasi Fitur Admin (Rekap & Data Karyawan)**:
+    Saat ini menu Rekap (`view-rekap`) dan Data Karyawan (`view-karyawan`) sudah memiliki markup HTML tetapi belum dihubungkan dengan logika JS di `js/app.js`. Fitur ini perlu diimplementasikan agar admin HRD/MIS dapat memantau absensi langsung di aplikasi.
+
+6.  **Validasi Form yang Lebih Ketat**:
     Tingkatkan validasi pada pengajuan WFA dan input karyawan baru untuk mencegah data duplikat atau format yang salah sebelum dikirim ke server.
 
-6.  **Modularitas Kode**:
+7.  **Modularitas Kode**:
     `js/app.js` sudah mulai membesar. Pertimbangkan untuk memecah logika per-tab ke dalam modul terpisah (misal: `calendar.js`, `attendance.js`, `request.js`) agar lebih mudah dipelihara.

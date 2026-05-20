@@ -226,7 +226,32 @@ async function loadCalendar(offset = 0) {
   container.innerHTML = '<div style="grid-column: span 7; text-align: center; padding: 24px;"><span class="spinner"></span></div>';
   
   try {
-    state.approvedWfaList = await graphService.getApprovedWfaByBulan(month, year);
+    const rawList = await graphService.getApprovedWfaByBulan(month, year);
+    
+    if (state.karyawan) {
+      const userEmail = (state.karyawan.email || '').toLowerCase().trim();
+      const userManagerEmail = (state.karyawan.emailAtasan || '').toLowerCase().trim();
+      const userNip = (state.karyawan.nip || '').toLowerCase().trim();
+
+      state.approvedWfaList = rawList.filter(item => {
+        const itemManager = (item.emailAtasan || '').toLowerCase().trim();
+        const itemNip = (item.nip || '').toLowerCase().trim();
+
+        // 1. Memiliki atasan yang sama (Satu Atasan)
+        const isSameManager = userManagerEmail && itemManager === userManagerEmail;
+
+        // 2. Merupakan bawahan langsung (User login adalah atasannya)
+        const isSubordinate = userEmail && itemManager === userEmail;
+
+        // 3. Milik user itu sendiri (NIP/NRK sama)
+        const isSelf = userNip && itemNip === userNip;
+
+        return isSameManager || isSubordinate || isSelf;
+      });
+    } else {
+      state.approvedWfaList = rawList;
+    }
+    
     renderCalendarGrid(month, year);
   } catch (err) {
     container.innerHTML = `<div style="grid-column: span 7; text-align: center; padding: 24px; color: var(--red);">Gagal memuat jadwal kalender: ${err.message}</div>`;
@@ -265,7 +290,7 @@ function renderCalendarGrid(month, year) {
     `).join('');
     
     cellsHtml += `
-      <div class="calendar-day-cell ${todayClass}">
+      <div class="calendar-day-cell ${todayClass}" data-date="${currentDayStr}" style="cursor: pointer;">
         <span class="calendar-day-number">${day}</span>
         <div class="calendar-wfa-list">
           ${wfaHtml}
@@ -275,6 +300,48 @@ function renderCalendarGrid(month, year) {
   }
   
   container.innerHTML = cellsHtml;
+}
+
+function openCalendarDetailModal(dateStr) {
+  const modal = document.getElementById('modal-calendar-detail');
+  const dateEl = document.getElementById('calendar-detail-date');
+  const listEl = document.getElementById('calendar-detail-list');
+  
+  if (!modal || !dateEl || !listEl) return;
+  
+  dateEl.textContent = formatTanggal(dateStr + 'T00:00:00');
+  
+  // Ambil list karyawan WFA pada tanggal tersebut
+  const wfaOnDay = state.approvedWfaList.filter(item => item.tanggal === dateStr);
+  
+  if (wfaOnDay.length === 0) {
+    listEl.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 20px; font-style: italic;">
+        Tidak ada karyawan WFA pada tanggal ini.
+      </div>
+    `;
+  } else {
+    listEl.innerHTML = wfaOnDay.map(w => `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color 0.2s;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <strong style="color: var(--text-primary); font-size: 0.9rem;">${w.nama}</strong>
+          <span style="color: var(--text-muted); font-size: 0.72rem; font-family: var(--font-mono);">NIP/NRK: ${w.nip}</span>
+        </div>
+        <span class="status-badge status--success" style="font-size: 0.65rem; padding: 2px 8px;">Approved</span>
+      </div>
+    `).join('');
+  }
+  
+  modal.classList.remove('hidden');
+  modal.classList.add('modal--show');
+}
+
+function closeCalendarDetailModal() {
+  const modal = document.getElementById('modal-calendar-detail');
+  if (modal) {
+    modal.classList.remove('modal--show');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+  }
 }
 
 // ============================================================
@@ -783,6 +850,22 @@ function bindEvents() {
   // Backdrop modal absen click to close
   document.getElementById('modal-absen')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeAbsenModal();
+  });
+
+  // Click on calendar day cell to open detail popup
+  document.getElementById('calendar-days-container')?.addEventListener('click', (e) => {
+    const cell = e.target.closest('.calendar-day-cell');
+    if (cell && cell.dataset.date) {
+      openCalendarDetailModal(cell.dataset.date);
+    }
+  });
+
+  // Calendar Detail Modal close button
+  document.getElementById('btn-close-calendar-modal')?.addEventListener('click', closeCalendarDetailModal);
+
+  // Backdrop modal detail calendar click to close
+  document.getElementById('modal-calendar-detail')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeCalendarDetailModal();
   });
 }
 

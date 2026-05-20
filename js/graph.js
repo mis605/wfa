@@ -372,7 +372,8 @@ class GraphService {
           result.push({
             nip: req.NIP || req.Nip || req.NRK || req.Title || '',
             nama: req.Nama || '',
-            tanggal: d
+            tanggal: d,
+            emailAtasan: (req.Email_Atasan || req.EmailAtasan || '').toLowerCase().trim()
           });
         }
       });
