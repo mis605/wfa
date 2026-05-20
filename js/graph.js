@@ -94,6 +94,23 @@ class GraphService {
     });
   }
 
+  async debugListColumns(listId, listName) {
+    console.log(`[Debug] Fetching columns for list ${listName} (${listId})...`);
+    const url = `${this.getSharePointBase()}/lists/${listId}/columns`;
+    try {
+      const data = await this.apiFetch(url);
+      if (data && data.value) {
+        const cols = data.value.map(c => ({
+          name: c.name,
+          displayName: c.displayName
+        }));
+        console.log(`[Debug] Columns for list ${listName}:`, cols);
+      }
+    } catch (err) {
+      console.error(`[Debug] Error fetching columns for ${listName}:`, err);
+    }
+  }
+
   // Helper: Timestamp Lokal (WIB) YYYY-MM-DD HH:mm:ss
   getLocalTimestamp() {
     const d = new Date();

@@ -95,6 +95,15 @@ async function loadUserSession() {
     state.user = await authService.getUserProfile();
     console.log('[App] User profile retrieved:', state.user);
     
+    // Debug list columns to see exact internal names of columns in SharePoint
+    try {
+      await graphService.debugListColumns(APP_CONFIG.listKaryawanId, 'Karyawan');
+      await graphService.debugListColumns(APP_CONFIG.listAbsensiId, 'Absensi');
+      await graphService.debugListColumns(APP_CONFIG.listPermohonanWfaId, 'PermohonanWfa');
+    } catch (e) {
+      console.warn('[App] Failed to run debugListColumns:', e);
+    }
+    
     document.getElementById('loading-text').textContent = 'Memverifikasi data karyawan...';
     // Cek data karyawan di list SharePoint
     const userEmail = state.user.mail || state.user.userPrincipalName;
