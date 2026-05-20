@@ -153,7 +153,6 @@ class GraphService {
   async tambahKaryawan(data) {
     const fields = {
       Title: data.nip,
-      NRK: data.nip,
       Nama: data.nama,
       Email: data.email,
       Departemen: data.departemen,
@@ -168,7 +167,7 @@ class GraphService {
   async updateKaryawan(id, data) {
     const fields = {};
     if (data.nip !== undefined) {
-      fields.NRK = data.nip;
+      fields.Title = data.nip;
     }
     if (data.nama !== undefined) fields.Nama = data.nama;
     if (data.email !== undefined) fields.Email = data.email;
@@ -270,8 +269,7 @@ class GraphService {
     const status = this.hitungStatus(jamMasuk);
     
     const fields = {
-      Title: `ABS-${Date.now()}`,
-      NRK: data.nip,
+      Title: data.nip,
       Nama: data.nama,
       Tanggal: tanggal,
       Jam_Masuk: jamMasuk,
@@ -385,8 +383,7 @@ class GraphService {
 
   async tambahPermohonanWfa(data) {
     const fields = {
-      Title: `REQ-${Date.now()}`,
-      NRK: data.nip,
+      Title: data.nip,
       Nama: data.nama,
       Email_User: data.emailUser,
       Tanggal_WFA: data.tanggalWfa, // String terpisah koma
