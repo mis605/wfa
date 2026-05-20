@@ -483,6 +483,27 @@ class GraphService {
       </div>
     `;
 
+    const userEmail = req.Email_User || req.EmailUser || req.Email || '';
+    const ccRecipients = [
+      {
+        emailAddress: {
+          address: 'anom@gos.co.id'
+        }
+      },
+      {
+        emailAddress: {
+          address: 'mis@gos.co.id'
+        }
+      }
+    ];
+    if (userEmail) {
+      ccRecipients.push({
+        emailAddress: {
+          address: userEmail
+        }
+      });
+    }
+
     const message = {
       subject: `[WFA Request] Pengajuan WFA - ${req.Nama}`,
       body: {
@@ -495,7 +516,8 @@ class GraphService {
             address: req.Email_Atasan
           }
         }
-      ]
+      ],
+      ccRecipients: ccRecipients
     };
 
     return this.sendMail(message);
@@ -548,6 +570,18 @@ class GraphService {
         {
           emailAddress: {
             address: req.emailUser
+          }
+        }
+      ],
+      ccRecipients: [
+        {
+          emailAddress: {
+            address: 'hrd@gos.co.id'
+          }
+        },
+        {
+          emailAddress: {
+            address: 'mis@gos.co.id'
           }
         }
       ]
