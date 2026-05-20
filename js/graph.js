@@ -98,13 +98,13 @@ class GraphService {
     const items = await this.getListItems(APP_CONFIG.listKaryawanId);
     return items.map(item => ({
       id: item.listItemId,
-      nip: item.NIP || '',
+      nip: item.NRK || item.NIP || item.Nip || item.Title || '',
       nama: item.Nama || '',
       email: item.Email || '',
       departemen: item.Departemen || '',
       jabatan: item.Jabatan || '',
-      statusAktif: item.Status_Aktif || '',
-      emailAtasan: item.Email_Atasan || '',
+      statusAktif: item.Status_Aktif || item.StatusAktif || '',
+      emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
       dibuatPada: item.Created || item.Dibuat_Pada || ''
     }));
   }
@@ -118,12 +118,15 @@ class GraphService {
     const fields = {
       Title: data.nip,
       NIP: data.nip,
+      NRK: data.nip,
       Nama: data.nama,
       Email: data.email,
       Departemen: data.departemen,
       Jabatan: data.jabatan,
       Status_Aktif: 'Aktif',
-      Email_Atasan: data.emailAtasan || ''
+      StatusAktif: 'Aktif',
+      Email_Atasan: data.emailAtasan || '',
+      EmailAtasan: data.emailAtasan || ''
     };
     const res = await this.addListItem(APP_CONFIG.listKaryawanId, fields);
     return res.listItemId;
@@ -131,13 +134,22 @@ class GraphService {
 
   async updateKaryawan(id, data) {
     const fields = {};
-    if (data.nip !== undefined) fields.NIP = data.nip;
+    if (data.nip !== undefined) {
+      fields.NIP = data.nip;
+      fields.NRK = data.nip;
+    }
     if (data.nama !== undefined) fields.Nama = data.nama;
     if (data.email !== undefined) fields.Email = data.email;
     if (data.departemen !== undefined) fields.Departemen = data.departemen;
     if (data.jabatan !== undefined) fields.Jabatan = data.jabatan;
-    if (data.statusAktif !== undefined) fields.Status_Aktif = data.statusAktif;
-    if (data.emailAtasan !== undefined) fields.Email_Atasan = data.emailAtasan;
+    if (data.statusAktif !== undefined) {
+      fields.Status_Aktif = data.statusAktif;
+      fields.StatusAktif = data.statusAktif;
+    }
+    if (data.emailAtasan !== undefined) {
+      fields.Email_Atasan = data.emailAtasan;
+      fields.EmailAtasan = data.emailAtasan;
+    }
     
     await this.updateListItem(APP_CONFIG.listKaryawanId, id, fields);
   }
@@ -151,16 +163,19 @@ class GraphService {
     const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     
     const items = await this.getListItems(APP_CONFIG.listAbsensiId);
-    const found = items.find(item => String(item.NIP) === String(nip) && item.Tanggal === today);
+    const found = items.find(item => {
+      const itemNip = item.NIP || item.Nip || item.NRK || item.Title;
+      return String(itemNip) === String(nip) && item.Tanggal === today;
+    });
     if (!found) return null;
     
     return {
       id: found.listItemId,
-      nip: found.NIP,
+      nip: found.NIP || found.Nip || found.NRK || found.Title || '',
       nama: found.Nama,
       tanggal: found.Tanggal,
-      jamMasuk: found.Jam_Masuk,
-      jamKeluar: found.Jam_Keluar,
+      jamMasuk: found.Jam_Masuk || found.JamMasuk,
+      jamKeluar: found.Jam_Keluar || found.JamKeluar,
       status: found.Status,
       keterangan: found.Keterangan
     };
@@ -175,14 +190,17 @@ class GraphService {
     const bulanIni = `${tahun}-${String(bulan).padStart(2,'0')}`;
     const items = await this.getListItems(APP_CONFIG.listAbsensiId);
     return items
-      .filter(item => String(item.NIP) === String(nip) && String(item.Tanggal).startsWith(bulanIni))
+      .filter(item => {
+        const itemNip = item.NIP || item.Nip || item.NRK || item.Title;
+        return String(itemNip) === String(nip) && String(item.Tanggal).startsWith(bulanIni);
+      })
       .map(item => ({
         id: item.listItemId,
-        nip: item.NIP,
+        nip: item.NIP || item.Nip || item.NRK || item.Title || '',
         nama: item.Nama,
         tanggal: item.Tanggal,
-        jamMasuk: item.Jam_Masuk,
-        jamKeluar: item.Jam_Keluar,
+        jamMasuk: item.Jam_Masuk || item.JamMasuk,
+        jamKeluar: item.Jam_Keluar || item.JamKeluar,
         status: item.Status,
         keterangan: item.Keterangan
       }));
@@ -195,11 +213,11 @@ class GraphService {
       .filter(item => String(item.Tanggal).startsWith(prefix))
       .map(item => ({
         id: item.listItemId,
-        nip: item.NIP,
+        nip: item.NIP || item.Nip || item.NRK || item.Title || '',
         nama: item.Nama,
         tanggal: item.Tanggal,
-        jamMasuk: item.Jam_Masuk,
-        jamKeluar: item.Jam_Keluar,
+        jamMasuk: item.Jam_Masuk || item.JamMasuk,
+        jamKeluar: item.Jam_Keluar || item.JamKeluar,
         status: item.Status,
         keterangan: item.Keterangan
       }));
@@ -277,17 +295,20 @@ class GraphService {
   async getPermohonanWfa(email) {
     const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
     return items
-      .filter(item => String(item.Email_User).toLowerCase() === email.toLowerCase())
+      .filter(item => {
+        const itemEmailUser = item.Email_User || item.EmailUser || item.Email || '';
+        return String(itemEmailUser).toLowerCase() === email.toLowerCase();
+      })
       .map(item => ({
         id: item.listItemId,
-        nip: item.NIP,
-        nama: item.Nama,
-        emailUser: item.Email_User,
-        tanggalWfa: item.Tanggal_WFA,
+        nip: item.NIP || item.Nip || item.NRK || item.Title || '',
+        nama: item.Nama || '',
+        emailUser: item.Email_User || item.EmailUser || item.Email || '',
+        tanggalWfa: item.Tanggal_WFA || item.TanggalWfa || item.Tanggal || '',
         status: item.Status || 'Pending',
-        emailAtasan: item.Email_Atasan,
-        catatanUser: item.Catatan_User,
-        catatanAtasan: item.Catatan_Atasan
+        emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
+        catatanUser: item.Catatan_User || item.CatatanUser || item.Catatan || '',
+        catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || ''
       }));
   }
 
@@ -297,14 +318,14 @@ class GraphService {
     if (!found) return null;
     return {
       id: found.listItemId,
-      nip: found.NIP,
-      nama: found.Nama,
-      emailUser: found.Email_User,
-      tanggalWfa: found.Tanggal_WFA,
+      nip: found.NIP || found.Nip || found.NRK || found.Title || '',
+      nama: found.Nama || '',
+      emailUser: found.Email_User || found.EmailUser || found.Email || '',
+      tanggalWfa: found.Tanggal_WFA || found.TanggalWfa || found.Tanggal || '',
       status: found.Status || 'Pending',
-      emailAtasan: found.Email_Atasan,
-      catatanUser: found.Catatan_User,
-      catatanAtasan: found.Catatan_Atasan
+      emailAtasan: found.Email_Atasan || found.EmailAtasan || '',
+      catatanUser: found.Catatan_User || found.CatatanUser || found.Catatan || '',
+      catatanAtasan: found.Catatan_Atasan || found.CatatanAtasan || ''
     };
   }
 
@@ -316,13 +337,13 @@ class GraphService {
     const result = [];
 
     approvedRequests.forEach(req => {
-      // Tanggal_WFA disimpan sebagai koma terpisah, e.g. "2026-05-21, 2026-05-22"
-      const dates = req.Tanggal_WFA ? req.Tanggal_WFA.split(',').map(d => d.trim()) : [];
+      const datesField = req.Tanggal_WFA || req.TanggalWfa || req.Tanggal || '';
+      const dates = datesField ? datesField.split(',').map(d => d.trim()) : [];
       dates.forEach(d => {
         if (d.startsWith(prefix)) {
           result.push({
-            nip: req.NIP,
-            nama: req.Nama,
+            nip: req.NIP || req.Nip || req.NRK || req.Title || '',
+            nama: req.Nama || '',
             tanggal: d
           });
         }

@@ -2,7 +2,7 @@
 // SW.JS - Service Worker (PWA)
 // ============================================================
 
-const CACHE_NAME = 'absen-wfa-v1.3';
+const CACHE_NAME = 'absen-wfa-v1.5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
