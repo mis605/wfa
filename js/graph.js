@@ -136,16 +136,13 @@ class GraphService {
   async tambahKaryawan(data) {
     const fields = {
       Title: data.nip,
-      NIP: data.nip,
       NRK: data.nip,
       Nama: data.nama,
       Email: data.email,
       Departemen: data.departemen,
       Jabatan: data.jabatan,
       Status_Aktif: 'Aktif',
-      StatusAktif: 'Aktif',
-      Email_Atasan: data.emailAtasan || '',
-      EmailAtasan: data.emailAtasan || ''
+      Email_Atasan: data.emailAtasan || ''
     };
     const res = await this.addListItem(APP_CONFIG.listKaryawanId, fields);
     return res.listItemId;
@@ -154,7 +151,6 @@ class GraphService {
   async updateKaryawan(id, data) {
     const fields = {};
     if (data.nip !== undefined) {
-      fields.NIP = data.nip;
       fields.NRK = data.nip;
     }
     if (data.nama !== undefined) fields.Nama = data.nama;
@@ -163,11 +159,9 @@ class GraphService {
     if (data.jabatan !== undefined) fields.Jabatan = data.jabatan;
     if (data.statusAktif !== undefined) {
       fields.Status_Aktif = data.statusAktif;
-      fields.StatusAktif = data.statusAktif;
     }
     if (data.emailAtasan !== undefined) {
       fields.Email_Atasan = data.emailAtasan;
-      fields.EmailAtasan = data.emailAtasan;
     }
     
     await this.updateListItem(APP_CONFIG.listKaryawanId, id, fields);
@@ -260,7 +254,7 @@ class GraphService {
     
     const fields = {
       Title: `ABS-${Date.now()}`,
-      NIP: data.nip,
+      NRK: data.nip,
       Nama: data.nama,
       Tanggal: tanggal,
       Jam_Masuk: jamMasuk,
@@ -375,7 +369,7 @@ class GraphService {
   async tambahPermohonanWfa(data) {
     const fields = {
       Title: `REQ-${Date.now()}`,
-      NIP: data.nip,
+      NRK: data.nip,
       Nama: data.nama,
       Email_User: data.emailUser,
       Tanggal_WFA: data.tanggalWfa, // String terpisah koma
@@ -450,8 +444,8 @@ class GraphService {
             <td style="padding: 10px;">${req.Nama}</td>
           </tr>
           <tr>
-            <td style="padding: 10px; font-weight: bold;">NIP</td>
-            <td style="padding: 10px;">${req.NIP}</td>
+            <td style="padding: 10px; font-weight: bold;">NIP / NRK</td>
+            <td style="padding: 10px;">${req.NRK || req.NIP || ''}</td>
           </tr>
           <tr style="background-color: #f7fafc;">
             <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal WFA</td>

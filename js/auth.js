@@ -114,17 +114,32 @@ class AuthService {
       account: account,
     };
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('MSAL Token acquisition timed out')), 6000)
+    );
+
     try {
-      // Coba dapatkan token secara silent
       console.log('[AuthService] Attempting acquireTokenSilent...');
-      const response = await this.msalInstance.acquireTokenSilent(tokenRequest);
+      // Menggunakan Promise.race untuk mencegah hang jika iframe MSAL diblokir di HP
+      const response = await Promise.race([
+        this.msalInstance.acquireTokenSilent(tokenRequest),
+        timeoutPromise
+      ]);
       console.log('[AuthService] acquireTokenSilent success');
       return response.accessToken;
     } catch (silentError) {
-      console.warn('[AuthService] acquireTokenSilent failed:', silentError);
-      // Jika token silent gagal (misalnya sesi kedaluwarsa), lempar error agar UI mengarahkan pengguna untuk klik login manual.
-      // Jangan pernah meluncurkan popup/redirect interaktif secara otomatis di latar belakang karena akan diblokir browser atau menyangkut.
-      throw new Error('Sesi autentikasi Anda telah berakhir atau memerlukan persetujuan baru. Silakan klik tombol Masuk kembali.');
+      console.warn('[AuthService] Silent token retrieval failed or timed out:', silentError);
+      
+      if (this.isMobileDevice()) {
+        console.log('[AuthService] Mobile device: Redirecting to acquire token...');
+        // Di HP/mobile, jika token senyap gagal/time out, kita arahkan ke login redirect agar sesi pulih
+        await this.msalInstance.acquireTokenRedirect(tokenRequest);
+        // Kembalikan promise yang menggantung untuk memblokir eksekusi sementara halaman mengalihkan URL
+        return new Promise(() => {});
+      } else {
+        // Di laptop, lempar error agar UI menampilkan pesan dan tombol login ulang
+        throw new Error('Sesi masuk Anda telah berakhir atau memerlukan persetujuan baru. Silakan klik tombol Masuk kembali.');
+      }
     }
   }
 
