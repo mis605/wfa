@@ -1224,5 +1224,318 @@ body {
   }
 }
 
-/* Canvas hidden */
-#capture-canvas { display: none; }
+/* ============================================================
+   WFA CALENDAR TAB STYLES
+   ============================================================ */
+.calendar-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.calendar-grid-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.calendar-day-cell {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-height: 70px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  transition: all 0.2s;
+}
+
+.calendar-day-cell--today {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.calendar-day-cell--empty {
+  background: transparent;
+  border-color: transparent;
+  pointer-events: none;
+}
+
+.calendar-day-number {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.calendar-day-cell--today .calendar-day-number {
+  color: var(--accent);
+}
+
+.calendar-wfa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.calendar-wfa-name {
+  font-size: 0.62rem;
+  padding: 2px 4px;
+  background: var(--green-dim);
+  color: var(--green);
+  border-radius: 3px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
+}
+
+/* ============================================================
+   WFA STATUS & ALERTS
+   ============================================================ */
+.wfa-status-card {
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.wfa-status-card--approved {
+  background: var(--green-dim);
+  border-color: rgba(45, 204, 143, 0.3);
+  color: var(--green);
+}
+
+.wfa-status-card--none {
+  background: var(--yellow-dim);
+  border-color: rgba(240, 180, 41, 0.3);
+  color: var(--yellow);
+}
+
+.wfa-status-card--rejected {
+  background: var(--red-dim);
+  border-color: rgba(240, 82, 82, 0.3);
+  color: var(--red);
+}
+
+/* ============================================================
+   REQUEST WFA PICKER & FORM
+   ============================================================ */
+.request-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.picker-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+#picker-month-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.picker-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.picker-grid-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.picker-day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 50%;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+  color: var(--text-primary);
+  border: 1px solid transparent;
+}
+
+.picker-day-cell:hover:not(.picker-day-cell--empty):not(.picker-day-cell--disabled) {
+  background: var(--bg-elevated);
+  border-color: var(--border);
+}
+
+.picker-day-cell--empty {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.picker-day-cell--disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.picker-day-cell--selected {
+  background: var(--accent) !important;
+  color: white !important;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(79, 142, 247, 0.4);
+}
+
+.selected-dates-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: 42px;
+}
+
+.selected-dates-list .empty-text {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+  align-self: center;
+}
+
+.selected-date-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(79, 142, 247, 0.25);
+  padding: 3px 8px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.selected-date-tag__remove {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.selected-date-tag__remove:hover {
+  color: var(--red);
+}
+
+.manager-info {
+  margin-top: 14px;
+  font-size: 0.8rem;
+  padding: 10px 14px;
+  background: var(--bg-input);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.manager-info .label {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   APPROVAL SCREEN STYLES
+   ============================================================ */
+.approval-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+  margin-top: 10px;
+}
+
+.request-details-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detail-lbl {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.app-dates-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-weight: 500;
+}
+
+.app-comment-p {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  width: 100%;
+}
+

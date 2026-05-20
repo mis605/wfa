@@ -1,5 +1,5 @@
 // ============================================================
-// GRAPH.JS - Service untuk Microsoft Graph API & Excel Online
+// GRAPH.JS - Service untuk Microsoft Graph API & SharePoint Lists
 // ============================================================
 
 import { APP_CONFIG } from './config.js';
@@ -8,15 +8,6 @@ import authService from './auth.js';
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 
 class GraphService {
-  
-  // Helper: build URL dasar untuk operasi Excel
-  getExcelBaseUrl() {
-    if (APP_CONFIG.driveType === 'me') {
-      return `${GRAPH_BASE}/me/drive/items/${APP_CONFIG.excelFileId}/workbook`;
-    } else {
-      return `${GRAPH_BASE}/sites/${APP_CONFIG.siteId}/drives/${APP_CONFIG.driveId}/items/${APP_CONFIG.excelFileId}/workbook`;
-    }
-  }
 
   // Helper: fetch dengan auth token
   async apiFetch(url, options = {}) {
@@ -42,59 +33,46 @@ class GraphService {
       throw new Error(`Graph API Error: ${errorMsg}`);
     }
 
-    // 204 No Content
     if (response.status === 204) return null;
-    
     return response.json();
   }
 
-  // Helper: Normalisasi format tanggal apapun dari Excel menjadi YYYY-MM-DD
-  normalizeExcelDate(excelDate) {
-    if (!excelDate) return '';
-    const str = String(excelDate).trim().split(' ')[0]; // Ambil tanggalnya saja jika ada jam
-    
-    // Sudah YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.substring(0, 10);
-    
-    // Excel Serial Number (e.g. 45409)
-    if (!isNaN(str) && Number(str) > 30000) {
-      const d = new Date((Number(str) - 25569) * 86400 * 1000);
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    }
-    
-    // Format DD/MM/YYYY atau MM/DD/YYYY atau DD-MM-YYYY
-    const parts = str.split(/[-/]/);
-    if (parts.length === 3) {
-      if (parts[0].length === 4) { // YYYY-MM-DD
-        return `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-      } else if (Number(parts[0]) > 12) { // Pasti DD/MM/YYYY
-        return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-      } else if (Number(parts[1]) > 12) { // Pasti MM/DD/YYYY
-        return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-      } else {
-        // Ambigu (misal 04/05/2026). Asumsikan format Indonesia (DD/MM/YYYY)
-        return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
-      }
-    }
-    
-    return str.substring(0, 10);
+  // Base URL untuk SharePoint Site
+  getSharePointBase() {
+    return `${GRAPH_BASE}/sites/${APP_CONFIG.sharepointSiteId}`;
   }
 
-  // Helper: Normalisasi Jam dari Excel (Fraction of day atau Text)
-  normalizeExcelTime(excelTime) {
-    if (!excelTime) return '';
-    const str = String(excelTime).trim();
-    
-    // Jika berupa number / pecahan hari dari Excel (e.g. 0.456)
-    if (!isNaN(str) && Number(str) > 0 && Number(str) < 1) {
-      const totalSeconds = Math.round(Number(str) * 86400);
-      const h = Math.floor(totalSeconds / 3600);
-      const m = Math.floor((totalSeconds % 3600) / 60);
-      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    }
-    
-    // Jika sudah teks HH:MM(:SS)
-    return str.substring(0, 5);
+  // Ambil semua item dari SharePoint List
+  async getListItems(listId) {
+    const url = `${this.getSharePointBase()}/lists/${listId}/items?expand=fields`;
+    const data = await this.apiFetch(url);
+    return data?.value?.map(item => ({
+      listItemId: item.id, // ID internal SharePoint item
+      ...item.fields
+    })) || [];
+  }
+
+  // Tambah item ke SharePoint List
+  async addListItem(listId, fields) {
+    const url = `${this.getSharePointBase()}/lists/${listId}/items`;
+    const body = { fields };
+    const response = await this.apiFetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    return {
+      listItemId: response.id,
+      ...response.fields
+    };
+  }
+
+  // Update item di SharePoint List berdasarkan ID internal
+  async updateListItem(listId, listItemId, fields) {
+    const url = `${this.getSharePointBase()}/lists/${listId}/items/${listItemId}/fields`;
+    return this.apiFetch(url, {
+      method: 'PATCH',
+      body: JSON.stringify(fields)
+    });
   }
 
   // Helper: Timestamp Lokal (WIB) YYYY-MM-DD HH:mm:ss
@@ -111,197 +89,57 @@ class GraphService {
     const [eh, em] = endHHMM.split(':').map(Number);
     return menitSekarang >= sh * 60 + sm && menitSekarang <= eh * 60 + em;
   }
-  // ============================================================
-
-  // Baca semua baris dari tabel Excel
-  async getTableRows(tableName) {
-    const url = `${this.getExcelBaseUrl()}/tables/${tableName}/rows`;
-    const data = await this.apiFetch(url);
-    return data?.value || [];
-  }
-
-  // Tambah baris baru ke tabel
-  async addTableRow(tableName, values) {
-    const url = `${this.getExcelBaseUrl()}/tables/${tableName}/rows/add`;
-    return this.apiFetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ values: [values] }),
-    });
-  }
-
-  // Update baris berdasarkan index
-  async updateTableRow(tableName, rowIndex, values) {
-    const url = `${this.getExcelBaseUrl()}/tables/${tableName}/rows/itemAt(index=${rowIndex})`;
-    return this.apiFetch(url, {
-      method: 'PATCH',
-      body: JSON.stringify({ values: [values] }),
-    });
-  }
-
-  // Cari index baris berdasarkan nilai di kolom tertentu
-  async findRowIndex(tableName, columnIndex, searchValue) {
-    const rows = await this.getTableRows(tableName);
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i].values[0][columnIndex]) === String(searchValue)) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  // Baca header tabel
-  async getTableHeaders(tableName) {
-    const url = `${this.getExcelBaseUrl()}/tables/${tableName}/columns`;
-    const data = await this.apiFetch(url);
-    return data?.value?.map(col => col.name) || [];
-  }
-
-  // ============================================================
-  // INISIALISASI EXCEL FILE
-  // ============================================================
-  
-  // Buat sheet dan tabel jika belum ada
-  async initializeExcelFile() {
-    const baseUrl = this.getExcelBaseUrl();
-    
-    // Cek/buat sheet Absensi
-    await this.ensureSheetExists(APP_CONFIG.sheetAbsensi);
-    await this.ensureSheetExists(APP_CONFIG.sheetKaryawan);
-    
-    // Cek/buat tabel
-    await this.ensureTableExists(
-      APP_CONFIG.sheetAbsensi,
-      APP_CONFIG.tableAbsensi,
-      'A1',
-      ['ID','NIP','Nama','Tanggal','Jam_Masuk','Jam_Keluar','Status',
-       'Foto_Masuk_B64','Foto_Keluar_B64','Latitude_Masuk','Longitude_Masuk',
-       'Latitude_Keluar','Longitude_Keluar','Keterangan','Dibuat_Pada']
-    );
-    
-    await this.ensureTableExists(
-      APP_CONFIG.sheetKaryawan,
-      APP_CONFIG.tableKaryawan,
-      'A1',
-      ['ID','NIP','Nama','Email','Departemen','Jabatan','Status_Aktif',
-       'Foto_Profil','Dibuat_Pada']
-    );
-  }
-
-  async ensureSheetExists(sheetName) {
-    const baseUrl = this.getExcelBaseUrl();
-    try {
-      await this.apiFetch(`${baseUrl}/sheets/${sheetName}`);
-    } catch {
-      // Sheet tidak ada, buat baru
-      await this.apiFetch(`${baseUrl}/sheets/add`, {
-        method: 'POST',
-        body: JSON.stringify({ name: sheetName }),
-      });
-    }
-  }
-
-  async ensureTableExists(sheetName, tableName, startCell, headers) {
-    const baseUrl = this.getExcelBaseUrl();
-    try {
-      await this.apiFetch(`${baseUrl}/tables/${tableName}`);
-    } catch {
-      // Tulis header dulu
-      const endCell = String.fromCharCode(64 + headers.length) + '1';
-      const range = `${sheetName}!${startCell}:${endCell}`;
-      
-      // Set header values
-      await this.apiFetch(`${baseUrl}/worksheets/${sheetName}/range(address='${range}')`, {
-        method: 'PATCH',
-        body: JSON.stringify({ values: [headers] }),
-      });
-      
-      // Buat tabel dari range
-      await this.apiFetch(`${baseUrl}/tables/add`, {
-        method: 'POST',
-        body: JSON.stringify({
-          address: `${sheetName}!${startCell}:${endCell}`,
-          hasHeaders: true,
-        }),
-      });
-      
-      // Rename tabel
-      const tables = await this.apiFetch(`${baseUrl}/tables`);
-      if (tables?.value?.length > 0) {
-        const lastTable = tables.value[tables.value.length - 1];
-        await this.apiFetch(`${baseUrl}/tables/${lastTable.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ name: tableName }),
-        });
-      }
-    }
-  }
 
   // ============================================================
   // OPERASI KARYAWAN
   // ============================================================
 
   async getAllKaryawan() {
-    const rows = await this.getTableRows(APP_CONFIG.tableKaryawan);
-    return rows.map(row => ({
-      id: row.values[0][0],
-      nip: row.values[0][1],
-      nama: row.values[0][2],
-      email: row.values[0][3],
-      departemen: row.values[0][4],
-      jabatan: row.values[0][5],
-      statusAktif: row.values[0][6],
-      fotoProfil: row.values[0][7],
-      dibuatPada: row.values[0][8],
+    const items = await this.getListItems(APP_CONFIG.listKaryawanId);
+    return items.map(item => ({
+      id: item.listItemId,
+      nip: item.NIP || '',
+      nama: item.Nama || '',
+      email: item.Email || '',
+      departemen: item.Departemen || '',
+      jabatan: item.Jabatan || '',
+      statusAktif: item.Status_Aktif || '',
+      emailAtasan: item.Email_Atasan || '',
+      dibuatPada: item.Created || item.Dibuat_Pada || ''
     }));
   }
 
   async getKaryawanByEmail(email) {
-    const rows = await this.getTableRows(APP_CONFIG.tableKaryawan);
-    const found = rows.find(row => 
-      String(row.values[0][3]).toLowerCase() === email.toLowerCase()
-    );
-    if (!found) return null;
-    return {
-      id: found.values[0][0],
-      nip: found.values[0][1],
-      nama: found.values[0][2],
-      email: found.values[0][3],
-      departemen: found.values[0][4],
-      jabatan: found.values[0][5],
-      statusAktif: found.values[0][6],
-      fotoProfil: found.values[0][7],
-    };
+    const items = await this.getAllKaryawan();
+    return items.find(k => String(k.email).toLowerCase() === email.toLowerCase()) || null;
   }
 
   async tambahKaryawan(data) {
-    const id = `KRY-${Date.now()}`;
-    const values = [
-      id, data.nip, data.nama, data.email,
-      data.departemen, data.jabatan, 'Aktif',
-      data.fotoProfil || '', this.getLocalTimestamp()
-    ];
-    await this.addTableRow(APP_CONFIG.tableKaryawan, values);
-    return id;
+    const fields = {
+      Title: data.nip,
+      NIP: data.nip,
+      Nama: data.nama,
+      Email: data.email,
+      Departemen: data.departemen,
+      Jabatan: data.jabatan,
+      Status_Aktif: 'Aktif',
+      Email_Atasan: data.emailAtasan || ''
+    };
+    const res = await this.addListItem(APP_CONFIG.listKaryawanId, fields);
+    return res.listItemId;
   }
 
   async updateKaryawan(id, data) {
-    const rows = await this.getTableRows(APP_CONFIG.tableKaryawan);
-    const idx = rows.findIndex(r => String(r.values[0][0]) === String(id));
-    if (idx === -1) throw new Error('Karyawan tidak ditemukan');
+    const fields = {};
+    if (data.nip !== undefined) fields.NIP = data.nip;
+    if (data.nama !== undefined) fields.Nama = data.nama;
+    if (data.email !== undefined) fields.Email = data.email;
+    if (data.departemen !== undefined) fields.Departemen = data.departemen;
+    if (data.jabatan !== undefined) fields.Jabatan = data.jabatan;
+    if (data.statusAktif !== undefined) fields.Status_Aktif = data.statusAktif;
+    if (data.emailAtasan !== undefined) fields.Email_Atasan = data.emailAtasan;
     
-    const existing = rows[idx].values[0];
-    const updated = [
-      existing[0],
-      data.nip ?? existing[1],
-      data.nama ?? existing[2],
-      data.email ?? existing[3],
-      data.departemen ?? existing[4],
-      data.jabatan ?? existing[5],
-      data.statusAktif ?? existing[6],
-      data.fotoProfil ?? existing[7],
-      existing[8]
-    ];
-    await this.updateTableRow(APP_CONFIG.tableKaryawan, idx, updated);
+    await this.updateListItem(APP_CONFIG.listKaryawanId, id, fields);
   }
 
   // ============================================================
@@ -312,15 +150,20 @@ class GraphService {
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     
-    const rows = await this.getTableRows(APP_CONFIG.tableAbsensi);
-    const found = rows.find(row => {
-      const rowNip = String(row.values[0][1]);
-      const rowTgl = this.normalizeExcelDate(row.values[0][3]);
-      return rowNip === String(nip) && rowTgl === today;
-    });
-    
+    const items = await this.getListItems(APP_CONFIG.listAbsensiId);
+    const found = items.find(item => String(item.NIP) === String(nip) && item.Tanggal === today);
     if (!found) return null;
-    return this.rowToAbsensi(found, rows.indexOf(found));
+    
+    return {
+      id: found.listItemId,
+      nip: found.NIP,
+      nama: found.Nama,
+      tanggal: found.Tanggal,
+      jamMasuk: found.Jam_Masuk,
+      jamKeluar: found.Jam_Keluar,
+      status: found.Status,
+      keterangan: found.Keterangan
+    };
   }
 
   async getAbsensiBulanIni(nip) {
@@ -330,72 +173,70 @@ class GraphService {
 
   async getAbsensiBulanTertentu(nip, bulan, tahun) {
     const bulanIni = `${tahun}-${String(bulan).padStart(2,'0')}`;
-    
-    const rows = await this.getTableRows(APP_CONFIG.tableAbsensi);
-    return rows
-      .filter(row => {
-        const rowNip = String(row.values[0][1]);
-        const rowTgl = this.normalizeExcelDate(row.values[0][3]);
-        return rowNip === String(nip) && rowTgl.startsWith(bulanIni);
-      })
-      .map((row, i) => this.rowToAbsensi(row, i));
+    const items = await this.getListItems(APP_CONFIG.listAbsensiId);
+    return items
+      .filter(item => String(item.NIP) === String(nip) && String(item.Tanggal).startsWith(bulanIni))
+      .map(item => ({
+        id: item.listItemId,
+        nip: item.NIP,
+        nama: item.Nama,
+        tanggal: item.Tanggal,
+        jamMasuk: item.Jam_Masuk,
+        jamKeluar: item.Jam_Keluar,
+        status: item.Status,
+        keterangan: item.Keterangan
+      }));
   }
 
   async getRekapAbsensi(bulan, tahun) {
     const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;
-    const rows = await this.getTableRows(APP_CONFIG.tableAbsensi);
-    return rows
-      .filter(row => {
-        const rowTgl = this.normalizeExcelDate(row.values[0][3]);
-        return rowTgl.startsWith(prefix);
-      })
-      .map((row, i) => this.rowToAbsensi(row, i));
+    const items = await this.getListItems(APP_CONFIG.listAbsensiId);
+    return items
+      .filter(item => String(item.Tanggal).startsWith(prefix))
+      .map(item => ({
+        id: item.listItemId,
+        nip: item.NIP,
+        nama: item.Nama,
+        tanggal: item.Tanggal,
+        jamMasuk: item.Jam_Masuk,
+        jamKeluar: item.Jam_Keluar,
+        status: item.Status,
+        keterangan: item.Keterangan
+      }));
   }
 
   async absenMasuk(data) {
     // Validasi jam absen masuk
     if (!this.isWithinTimeRange(APP_CONFIG.jamMasukMulai, APP_CONFIG.jamMasukSelesai)) {
-      const [eh, em] = APP_CONFIG.jamMasukSelesai.split(':');
       const [sh, sm] = APP_CONFIG.jamMasukMulai.split(':');
+      const [eh, em] = APP_CONFIG.jamMasukSelesai.split(':');
       throw new Error(`Absen masuk hanya bisa dilakukan antara ${sh}:${sm} – ${eh}:${em}.`);
     }
     
-    // Cek apakah sudah absen hari ini
     const existing = await this.getAbsensiHariIni(data.nip);
     if (existing) throw new Error('Anda sudah melakukan absen masuk hari ini.');
     
-    const id = `ABS-${Date.now()}`;
     const now = new Date();
     const tanggal = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     const jamMasuk = now.toTimeString().substring(0, 8);
-    
-    // Tentukan status ketepatan waktu
     const status = this.hitungStatus(jamMasuk);
     
-    const values = [
-      id,
-      data.nip,
-      data.nama,
-      tanggal,
-      jamMasuk,
-      '',          // Jam keluar (belum)
-      status,
-      data.fotoMasuk || '',
-      '',          // Foto keluar
-      data.latitude || '',
-      data.longitude || '',
-      '',          // Lat keluar
-      '',          // Lng keluar
-      data.keterangan || '',
-      this.getLocalTimestamp()
-    ];
+    const fields = {
+      Title: `ABS-${Date.now()}`,
+      NIP: data.nip,
+      Nama: data.nama,
+      Tanggal: tanggal,
+      Jam_Masuk: jamMasuk,
+      Jam_Keluar: '',
+      Status: status,
+      Keterangan: data.keterangan || ''
+    };
     
-    await this.addTableRow(APP_CONFIG.tableAbsensi, values);
-    return { id, status, jamMasuk };
+    const res = await this.addListItem(APP_CONFIG.listAbsensiId, fields);
+    return { id: res.listItemId, status, jamMasuk };
   }
 
   async absenKeluar(data) {
-    // Validasi jam absen keluar
     if (!this.isWithinTimeRange(APP_CONFIG.jamKeluarMulai, APP_CONFIG.jamKeluarSelesai)) {
       const [sh, sm] = APP_CONFIG.jamKeluarMulai.split(':');
       throw new Error(`Absen keluar hanya bisa dilakukan mulai pukul ${sh}:${sm}.`);
@@ -408,26 +249,12 @@ class GraphService {
     const now = new Date();
     const jamKeluar = now.toTimeString().substring(0, 8);
     
-    const rows = await this.getTableRows(APP_CONFIG.tableAbsensi);
-    const idx = rows.findIndex(r => String(r.values[0][0]) === String(existing.id));
-    if (idx === -1) throw new Error('Data absen tidak ditemukan.');
+    const fields = {
+      Jam_Keluar: jamKeluar,
+      Keterangan: data.keterangan || existing.keterangan || ''
+    };
     
-    const current = rows[idx].values[0];
-    const updated = [
-      current[0], current[1], current[2], current[3],
-      current[4],
-      jamKeluar,
-      current[6],
-      current[7],
-      data.fotoKeluar || '',
-      current[9], current[10],
-      data.latitude || '',
-      data.longitude || '',
-      data.keterangan || current[13],
-      current[14]
-    ];
-    
-    await this.updateTableRow(APP_CONFIG.tableAbsensi, idx, updated);
+    await this.updateListItem(APP_CONFIG.listAbsensiId, existing.id, fields);
     return { jamKeluar };
   }
 
@@ -443,22 +270,242 @@ class GraphService {
     return 'Terlambat';
   }
 
-  rowToAbsensi(row, index) {
-    const v = row.values[0];
+  // ============================================================
+  // OPERASI PERMOHONAN WFA
+  // ============================================================
+
+  async getPermohonanWfa(email) {
+    const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
+    return items
+      .filter(item => String(item.Email_User).toLowerCase() === email.toLowerCase())
+      .map(item => ({
+        id: item.listItemId,
+        nip: item.NIP,
+        nama: item.Nama,
+        emailUser: item.Email_User,
+        tanggalWfa: item.Tanggal_WFA,
+        status: item.Status || 'Pending',
+        emailAtasan: item.Email_Atasan,
+        catatanUser: item.Catatan_User,
+        catatanAtasan: item.Catatan_Atasan
+      }));
+  }
+
+  async getPermohonanWfaById(id) {
+    const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
+    const found = items.find(item => String(item.listItemId) === String(id));
+    if (!found) return null;
     return {
-      rowIndex: index,
-      id: v[0], 
-      nip: v[1], 
-      nama: v[2], 
-      tanggal: this.normalizeExcelDate(v[3]),
-      jamMasuk: this.normalizeExcelTime(v[4]), 
-      jamKeluar: this.normalizeExcelTime(v[5]), 
-      status: v[6],
-      fotoMasuk: v[7], fotoKeluar: v[8],
-      latMasuk: v[9], lngMasuk: v[10],
-      latKeluar: v[11], lngKeluar: v[12],
-      keterangan: v[13], dibuatPada: v[14]
+      id: found.listItemId,
+      nip: found.NIP,
+      nama: found.Nama,
+      emailUser: found.Email_User,
+      tanggalWfa: found.Tanggal_WFA,
+      status: found.Status || 'Pending',
+      emailAtasan: found.Email_Atasan,
+      catatanUser: found.Catatan_User,
+      catatanAtasan: found.Catatan_Atasan
     };
+  }
+
+  async getApprovedWfaByBulan(bulan, tahun) {
+    const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
+    const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;
+    
+    const approvedRequests = items.filter(item => item.Status === 'Approved');
+    const result = [];
+
+    approvedRequests.forEach(req => {
+      // Tanggal_WFA disimpan sebagai koma terpisah, e.g. "2026-05-21, 2026-05-22"
+      const dates = req.Tanggal_WFA ? req.Tanggal_WFA.split(',').map(d => d.trim()) : [];
+      dates.forEach(d => {
+        if (d.startsWith(prefix)) {
+          result.push({
+            nip: req.NIP,
+            nama: req.Nama,
+            tanggal: d
+          });
+        }
+      });
+    });
+
+    return result;
+  }
+
+  async tambahPermohonanWfa(data) {
+    const fields = {
+      Title: `REQ-${Date.now()}`,
+      NIP: data.nip,
+      Nama: data.nama,
+      Email_User: data.emailUser,
+      Tanggal_WFA: data.tanggalWfa, // String terpisah koma
+      Status: 'Pending',
+      Email_Atasan: data.emailAtasan,
+      Catatan_User: data.catatanUser || '',
+      Catatan_Atasan: ''
+    };
+    
+    const res = await this.addListItem(APP_CONFIG.listPermohonanWfaId, fields);
+    
+    // Kirim email persetujuan ke atasan
+    try {
+      await this.sendApprovalEmail({
+        listItemId: res.listItemId,
+        ...fields
+      });
+    } catch (e) {
+      console.error("Gagal mengirim email persetujuan ke atasan:", e);
+    }
+
+    return res.listItemId;
+  }
+
+  async updateStatusPermohonanWfa(id, status, catatanAtasan = '') {
+    const fields = {
+      Status: status,
+      Catatan_Atasan: catatanAtasan
+    };
+    await this.updateListItem(APP_CONFIG.listPermohonanWfaId, id, fields);
+    
+    // Kirim email balasan ke user pemohon
+    const req = await this.getPermohonanWfaById(id);
+    if (req) {
+      try {
+        await this.sendResponseEmail(req, status, catatanAtasan);
+      } catch (e) {
+        console.error("Gagal mengirim email balasan ke pemohon:", e);
+      }
+    }
+  }
+
+  // ============================================================
+  // OUTLOOK EMAIL DISPATCH via GRAPH API
+  // ============================================================
+
+  async sendMail(message) {
+    const url = `${GRAPH_BASE}/me/sendMail`;
+    return this.apiFetch(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        message,
+        saveToSentItems: 'true'
+      })
+    });
+  }
+
+  async sendApprovalEmail(req) {
+    const formattedDates = req.Tanggal_WFA.split(',').map(d => `• ${d.trim()}`).join('<br>');
+    const approveUrl = `${APP_CONFIG.redirectUri}?action=approve&id=${req.listItemId}`;
+    const rejectUrl = `${APP_CONFIG.redirectUri}?action=reject&id=${req.listItemId}`;
+
+    const mailContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <h2 style="color: #2b6cb0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Pengajuan Work From Anywhere (WFA)</h2>
+        <p>Halo,</p>
+        <p>Karyawan berikut mengajukan permohonan WFA:</p>
+        
+        <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
+          <tr style="background-color: #f7fafc;">
+            <td style="padding: 10px; font-weight: bold; width: 150px;">Nama Karyawan</td>
+            <td style="padding: 10px;">${req.Nama}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold;">NIP</td>
+            <td style="padding: 10px;">${req.NIP}</td>
+          </tr>
+          <tr style="background-color: #f7fafc;">
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal WFA</td>
+            <td style="padding: 10px; color: #2d3748;">${formattedDates}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Catatan/Alasan</td>
+            <td style="padding: 10px; color: #718096; font-style: italic;">"${req.Catatan_User || '-'}"</td>
+          </tr>
+        </table>
+
+        <p style="margin-top: 30px; font-weight: 500;">Silakan pilih respon tindakan untuk pengajuan ini:</p>
+        <div style="margin: 20px 0; display: flex; gap: 12px;">
+          <a href="${approveUrl}" style="display: inline-block; background-color: #48bb78; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem;">Setujui (Approve)</a>
+          <a href="${rejectUrl}" style="display: inline-block; background-color: #f56565; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; margin-left: 10px;">Tolak (Reject)</a>
+        </div>
+
+        <p style="font-size: 0.85rem; color: #a0aec0; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+          Catatan: Tombol di atas akan membuka web aplikasi Absensi WFA CO untuk memproses aksi persetujuan. Anda perlu masuk menggunakan akun Microsoft 365 Anda.
+        </p>
+      </div>
+    `;
+
+    const message = {
+      subject: `[WFA Request] Pengajuan WFA - ${req.Nama}`,
+      body: {
+        contentType: 'HTML',
+        content: mailContent
+      },
+      toRecipients: [
+        {
+          emailAddress: {
+            address: req.Email_Atasan
+          }
+        }
+      ]
+    };
+
+    return this.sendMail(message);
+  }
+
+  async sendResponseEmail(req, status, catatanAtasan) {
+    const isApproved = status === 'Approved';
+    const statusLabel = isApproved ? 'DISETUJUI' : 'DITOLAK';
+    const color = isApproved ? '#48bb78' : '#f56565';
+    const formattedDates = req.tanggalWfa.split(',').map(d => `• ${d.trim()}`).join('<br>');
+
+    const mailContent = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <h2 style="color: ${color}; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Status Pengajuan WFA - ${statusLabel}</h2>
+        <p>Halo ${req.nama},</p>
+        <p>Pengajuan WFA Anda telah ditinjau oleh atasan dengan status hasil berikut:</p>
+        
+        <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
+          <tr style="background-color: #f7fafc;">
+            <td style="padding: 10px; font-weight: bold; width: 150px;">Status</td>
+            <td style="padding: 10px; color: ${color}; font-weight: bold;">${statusLabel}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal Diajukan</td>
+            <td style="padding: 10px; color: #2d3748;">${formattedDates}</td>
+          </tr>
+          <tr style="background-color: #f7fafc;">
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Catatan Atasan</td>
+            <td style="padding: 10px; color: #2d3748;">${catatanAtasan || '-'}</td>
+          </tr>
+        </table>
+
+        <p style="margin-top: 30px;">
+          ${isApproved ? 'Silakan melakukan absensi masuk/pulang di webapp pada tanggal yang disetujui tersebut.' : 'Silakan hubungi atasan Anda jika ada pertanyaan lebih lanjut.'}
+        </p>
+        
+        <p style="font-size: 0.85rem; color: #a0aec0; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+          Email ini dikirim secara otomatis oleh Sistem Absensi WFA CO PT. GOS INDORAYA.
+        </p>
+      </div>
+    `;
+
+    const message = {
+      subject: `[WFA Status] Pengajuan WFA Anda telah ${statusLabel}`,
+      body: {
+        contentType: 'HTML',
+        content: mailContent
+      },
+      toRecipients: [
+        {
+          emailAddress: {
+            address: req.emailUser
+          }
+        }
+      ]
+    };
+
+    return this.sendMail(message);
   }
 }
 
