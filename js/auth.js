@@ -11,6 +11,11 @@ class AuthService {
     this.initialized = false;
   }
 
+  // Deteksi apakah perangkat adalah HP (mobile) untuk menghindari popup login
+  isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+  }
+
   async init() {
     if (this.initialized) return;
     
@@ -21,7 +26,7 @@ class AuthService {
 
     this.msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
     
-    // Handle redirect response
+    // Handle redirect response (sangat krusial setelah loginRedirect di HP)
     try {
       const response = await this.msalInstance.handleRedirectPromise();
       if (response) {
@@ -50,8 +55,14 @@ class AuthService {
       prompt: "select_account",
     };
 
+    if (this.isMobileDevice()) {
+      // HP: Hindari popup dan langsung gunakan redirect login
+      await this.msalInstance.loginRedirect(loginRequest);
+      return null;
+    }
+
     try {
-      // Coba popup dulu, fallback ke redirect
+      // Laptop/Desktop: Gunakan popup login
       const response = await this.msalInstance.loginPopup(loginRequest);
       this.currentAccount = response.account;
       this.msalInstance.setActiveAccount(response.account);
@@ -59,7 +70,7 @@ class AuthService {
     } catch (popupError) {
       if (popupError.errorCode === "popup_window_error" || 
           popupError.errorCode === "empty_window_error") {
-        // Fallback ke redirect
+        // Fallback ke redirect jika popup terblokir oleh peramban
         await this.msalInstance.loginRedirect(loginRequest);
       } else {
         throw popupError;
@@ -75,10 +86,16 @@ class AuthService {
       postLogoutRedirectUri: APP_CONFIG.redirectUri,
     };
 
-    try {
-      await this.msalInstance.logoutPopup(logoutRequest);
-    } catch {
+    if (this.isMobileDevice()) {
+      // HP: Gunakan redirect logout
       await this.msalInstance.logoutRedirect(logoutRequest);
+    } else {
+      // Laptop: Gunakan popup logout
+      try {
+        await this.msalInstance.logoutPopup(logoutRequest);
+      } catch {
+        await this.msalInstance.logoutRedirect(logoutRequest);
+      }
     }
     
     this.currentAccount = null;
@@ -98,17 +115,22 @@ class AuthService {
     };
 
     try {
-      // Silent token acquisition
+      // Coba dapatkan token secara silent
       const response = await this.msalInstance.acquireTokenSilent(tokenRequest);
       return response.accessToken;
     } catch (silentError) {
       if (silentError instanceof msal.InteractionRequiredAuthError) {
-        // Fallback ke popup
-        try {
-          const response = await this.msalInstance.acquireTokenPopup(tokenRequest);
-          return response.accessToken;
-        } catch (popupError) {
+        if (this.isMobileDevice()) {
+          // HP: Gunakan redirect untuk token jika interaksi dibutuhkan
           await this.msalInstance.acquireTokenRedirect(tokenRequest);
+        } else {
+          // Laptop: Gunakan popup token dengan fallback ke redirect
+          try {
+            const response = await this.msalInstance.acquireTokenPopup(tokenRequest);
+            return response.accessToken;
+          } catch (popupError) {
+            await this.msalInstance.acquireTokenRedirect(tokenRequest);
+          }
         }
       } else {
         throw silentError;

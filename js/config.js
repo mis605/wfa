@@ -6,20 +6,20 @@
 const APP_CONFIG = {
   // --- AZURE AD APP REGISTRATION ---
   // Daftar di: https://portal.azure.com > App registrations
-  clientId: "efa1afcc-0850-4433-a107-bec0fd0ee282",
-  tenantId: "5194178e-ce02-4b0c-8442-1374fd7eca0d",
+  clientId: "c87df5fb-eb2f-40bc-8c33-d0c47dedfe10",
+  tenantId: "c1cc324d-9fda-4a48-97ee-ba6157ba9c67",
 
   // Redirect URI harus sama persis dengan yang didaftarkan di Azure AD
   redirectUri: window.location.origin + window.location.pathname,
 
   // --- SHAREPOINT LISTS CONFIG ---
   // ID Site SharePoint (contoh: "tenant.sharepoint.com,xxxx-xxxx,yyyy-yyyy")
-  sharepointSiteId: "tenant.sharepoint.com,ganti-dengan-site-guid-1,ganti-dengan-site-guid-2",
+  sharepointSiteId: "gosgroup.sharepoint.com,75e3dc18-6245-4db0-9977-3b9bfdb582a2,c6ddcd82-3462-4bfb-b375-12e1c12a3e93",
   
   // ID / Nama List di SharePoint
-  listAbsensiId: "Absensi",
-  listKaryawanId: "Karyawan",
-  listPermohonanWfaId: "PermohonanWfa",
+  listAbsensiId: "2400574a-7ace-4c53-a472-afe1a991f68a",
+  listKaryawanId: "8d0674a3-05f6-426e-8d45-4cacc750ae4b",
+  listPermohonanWfaId: "d8137f93-ff19-4626-9ef5-4cb68bcf59c9",
 
   // --- PENGATURAN ABSENSI ---
   jamMasukMulai: "07:00",   // Jam mulai bisa absen masuk
