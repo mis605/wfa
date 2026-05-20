@@ -484,24 +484,27 @@ class GraphService {
     `;
 
     const userEmail = req.Email_User || req.EmailUser || req.Email || '';
-    const ccRecipients = [
-      {
-        emailAddress: {
-          address: 'anom@gos.co.id'
-        }
-      },
-      {
-        emailAddress: {
-          address: 'mis@gos.co.id'
-        }
-      }
+    const toAddress = (req.Email_Atasan || '').toLowerCase().trim();
+    const rawCcList = [
+      APP_CONFIG.emailHrd,
+      APP_CONFIG.emailMis,
+      userEmail
     ];
-    if (userEmail) {
-      ccRecipients.push({
-        emailAddress: {
-          address: userEmail
-        }
-      });
+
+    const ccEmails = new Set();
+    const ccRecipients = [];
+
+    for (const rawCc of rawCcList) {
+      if (!rawCc) continue;
+      const cleanCc = rawCc.toLowerCase().trim();
+      if (cleanCc && cleanCc !== toAddress && !ccEmails.has(cleanCc)) {
+        ccEmails.add(cleanCc);
+        ccRecipients.push({
+          emailAddress: {
+            address: cleanCc
+          }
+        });
+      }
     }
 
     const message = {
@@ -516,9 +519,12 @@ class GraphService {
             address: req.Email_Atasan
           }
         }
-      ],
-      ccRecipients: ccRecipients
+      ]
     };
+
+    if (ccRecipients.length > 0) {
+      message.ccRecipients = ccRecipients;
+    }
 
     return this.sendMail(message);
   }
@@ -560,6 +566,28 @@ class GraphService {
       </div>
     `;
 
+    const toAddress = (req.emailUser || '').toLowerCase().trim();
+    const rawCcList = [
+      APP_CONFIG.emailHrd,
+      APP_CONFIG.emailMis
+    ];
+
+    const ccEmails = new Set();
+    const ccRecipients = [];
+
+    for (const rawCc of rawCcList) {
+      if (!rawCc) continue;
+      const cleanCc = rawCc.toLowerCase().trim();
+      if (cleanCc && cleanCc !== toAddress && !ccEmails.has(cleanCc)) {
+        ccEmails.add(cleanCc);
+        ccRecipients.push({
+          emailAddress: {
+            address: cleanCc
+          }
+        });
+      }
+    }
+
     const message = {
       subject: `[WFA Status] Pengajuan WFA Anda telah ${statusLabel}`,
       body: {
@@ -572,20 +600,12 @@ class GraphService {
             address: req.emailUser
           }
         }
-      ],
-      ccRecipients: [
-        {
-          emailAddress: {
-            address: 'hrd@gos.co.id'
-          }
-        },
-        {
-          emailAddress: {
-            address: 'mis@gos.co.id'
-          }
-        }
       ]
     };
+
+    if (ccRecipients.length > 0) {
+      message.ccRecipients = ccRecipients;
+    }
 
     return this.sendMail(message);
   }

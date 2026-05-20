@@ -33,6 +33,10 @@ const APP_CONFIG = {
   // Nama perusahaan
   namaPerusahaan: "PT. GOS INDORAYA",
   logoPerusahaan: "", // URL logo (opsional)
+
+  // --- EMAIL NOTIFICATION CONFIG ---
+  emailHrd: "hrd@gos.co.id",
+  emailMis: "mis@gos.co.id",
 };
 
 // Microsoft Graph API scopes yang dibutuhkan

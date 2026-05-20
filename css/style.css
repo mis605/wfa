@@ -76,7 +76,8 @@ body {
    APP SHELL
    ============================================================ */
 #app {
-  max-width: 480px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
   min-height: 100vh;
   min-height: -webkit-fill-available;
@@ -176,7 +177,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   width: 100%;
-  max-width: 480px;
+  max-width: 100%;
   height: var(--nav-height);
   background: var(--bg-surface);
   border-top: 1px solid var(--border);
@@ -1208,8 +1209,90 @@ body {
 
 @media (min-width: 768px) {
   #app {
+    max-width: 1024px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
     box-shadow: var(--shadow-lg);
     margin: 0 auto;
+  }
+  .bottom-nav {
+    max-width: 1024px;
+  }
+  .fab {
+    right: calc(50% - 512px + 24px);
+  }
+
+  /* Grid layouts for main sections */
+  #view-absen {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 20px;
+    align-items: start;
+  }
+  #view-absen .greeting-card {
+    grid-column: 1 / -1;
+  }
+  #view-absen #wfa-status-card {
+    grid-column: 1;
+  }
+  #view-absen #absen-dashboard-content {
+    grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 20px;
+    align-items: start;
+  }
+  #view-absen #absen-dashboard-content > :nth-child(1) { /* Today Card */
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+  #view-absen #absen-dashboard-content > :nth-child(2) { /* Absen Buttons */
+    grid-column: 2;
+    margin-bottom: 0;
+  }
+  #view-absen #absen-dashboard-content > :nth-child(3) { /* Jam Absensi Card */
+    grid-column: 2;
+    margin-top: 0;
+  }
+
+  #view-request {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  #view-request > .section-header {
+    grid-column: 1 / -1;
+  }
+  #view-request > .request-card {
+    margin-top: 0 !important;
+  }
+
+  /* Expanded calendar for larger screens */
+  .calendar-day-cell {
+    min-height: 120px;
+    padding: 8px;
+  }
+  .calendar-wfa-name {
+    font-size: 0.72rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+  }
+}
+
+@media (min-width: 1200px) {
+  #app {
+    max-width: 1200px;
+  }
+  .bottom-nav {
+    max-width: 1200px;
+  }
+  .fab {
+    right: calc(50% - 600px + 32px);
+  }
+  
+  .calendar-day-cell {
+    min-height: 140px;
   }
 }
 
