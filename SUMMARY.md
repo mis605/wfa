@@ -22,7 +22,9 @@ Proyek ini adalah aplikasi web (PWA) untuk sistem absensi *Work From Anywhere* (
 *   **Liquid & Responsive Layout:** Mengubah `css/style.css` menjadi fully-liquid (100% width) di mobile dan menerapkan sistem multi-kolom grid side-by-side pada layar tablet/desktop, serta memperbesar visualisasi sel kalender agar ramah perangkat desktop.
 *   **Filtering Kalender Berdasarkan Atasan:** Menambahkan filter otomatis pada tab Kalender WFA. Karyawan hanya bisa melihat jadwal WFA miliknya sendiri, rekan kerja dengan atasan yang sama, dan bawahan langsungnya (jika pengguna adalah atasan).
 *   **Popup Detail Kalender WFA:** Menambahkan fitur popup/bottom sheet interaktif saat mengklik tanggal di kalender untuk menampilkan daftar lengkap karyawan (Nama & NIP/NRK) yang WFA pada hari tersebut.
-*   **Integrasi Jam Absensi & Simetrisasi Layout:** Menghapus card "Jam Absensi" yang terpisah dan mengintegrasikan jam toleransi absensi langsung ke dalam tombol "Absen Masuk" & "Absen Keluar" sebagai subtext. Memperbaiki penyelarasan tata letak grid desktop agar status hari ini dan tombol absensi sejajar secara presisi.
+*   **Alur Persetujuan Implisit (Auto-Approve):** Mengubah status pengajuan WFA baru menjadi `Approved` secara instan agar karyawan bisa langsung melakukan absensi tanpa menunggu verifikasi manual.
+*   **Email Notifikasi & Tautan Pembatalan Tunggal:** Menyesuaikan notifikasi email ke atasan dari tipe persetujuan menjadi pemberitahuan/notifikasi dengan tombol tunggal "Batalkan / Tolak Pengajuan" (Reject).
+*   **Form Pembatalan Atasan dengan Catatan Opsional:** Memperbarui panel pembatalan/penolakan agar atasan dapat menolak permohonan WFA yang sudah disetujui, dengan kolom catatan alasan penolakan yang bersifat opsional (Pilihan B).
 *   **Version Bump Cache PWA:** Menaikkan versi cache di `sw.js` ke `absen-wfa-v2.7` agar pembaruan layout dan script langsung terdeteksi oleh perangkat pengguna.
 
 ## Rekomendasi Peningkatan (Improvements)

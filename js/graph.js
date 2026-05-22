@@ -388,7 +388,7 @@ class GraphService {
       Nama: data.nama,
       Email_User: data.emailUser,
       Tanggal_WFA: data.tanggalWfa, // String terpisah koma
-      Status: 'Pending',
+      Status: 'Approved',
       Email_Atasan: data.emailAtasan,
       Catatan_User: data.catatanUser || '',
       Catatan_Atasan: ''
@@ -444,14 +444,13 @@ class GraphService {
 
   async sendApprovalEmail(req) {
     const formattedDates = req.Tanggal_WFA.split(',').map(d => `• ${d.trim()}`).join('<br>');
-    const approveUrl = `${APP_CONFIG.redirectUri}?action=approve&id=${req.listItemId}`;
     const rejectUrl = `${APP_CONFIG.redirectUri}?action=reject&id=${req.listItemId}`;
 
     const mailContent = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-        <h2 style="color: #2b6cb0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Pengajuan Work From Anywhere (WFA)</h2>
+        <h2 style="color: #2b6cb0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Pemberitahuan Work From Anywhere (WFA)</h2>
         <p>Halo,</p>
-        <p>Karyawan berikut mengajukan permohonan WFA:</p>
+        <p>Karyawan berikut telah mengajukan permohonan WFA dan statusnya telah <strong>disetujui secara otomatis oleh sistem</strong>:</p>
         
         <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
           <tr style="background-color: #f7fafc;">
@@ -460,7 +459,7 @@ class GraphService {
           </tr>
           <tr>
             <td style="padding: 10px; font-weight: bold;">NIP / NRK</td>
-            <td style="padding: 10px;">${req.NRK || req.NIP || ''}</td>
+            <td style="padding: 10px;">${req.NRK || req.NIP || req.Title || ''}</td>
           </tr>
           <tr style="background-color: #f7fafc;">
             <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal WFA</td>
@@ -472,14 +471,16 @@ class GraphService {
           </tr>
         </table>
 
-        <p style="margin-top: 30px; font-weight: 500;">Silakan pilih respon tindakan untuk pengajuan ini:</p>
-        <div style="margin: 20px 0; display: flex; gap: 12px;">
-          <a href="${approveUrl}" style="display: inline-block; background-color: #48bb78; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem;">Setujui (Approve)</a>
-          <a href="${rejectUrl}" style="display: inline-block; background-color: #f56565; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; margin-left: 10px;">Tolak (Reject)</a>
+        <p style="margin-top: 30px; font-weight: 500; color: #2d3748;">
+          Jika Anda menyetujui pengajuan ini, Anda <strong>tidak perlu melakukan tindakan apa pun</strong>. 
+          Namun, jika Anda ingin <strong>membatalkan / menolak</strong> pengajuan WFA ini, silakan klik tombol di bawah ini:
+        </p>
+        <div style="margin: 20px 0;">
+          <a href="${rejectUrl}" style="display: inline-block; background-color: #f56565; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem;">Batalkan / Tolak Pengajuan</a>
         </div>
 
         <p style="font-size: 0.85rem; color: #a0aec0; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-          Catatan: Tombol di atas akan membuka web aplikasi Absensi WFA CO untuk memproses aksi persetujuan. Anda perlu masuk menggunakan akun Microsoft 365 Anda.
+          Catatan: Tombol di atas akan membuka web aplikasi Absensi WFA CO untuk membatalkan pengajuan. Anda perlu masuk menggunakan akun Microsoft 365 Anda.
         </p>
       </div>
     `;
@@ -509,7 +510,7 @@ class GraphService {
     }
 
     const message = {
-      subject: `[WFA Request] Pengajuan WFA - ${req.Nama}`,
+      subject: `[WFA Notification] Pengajuan WFA - ${req.Nama} (Disetujui Otomatis)`,
       body: {
         contentType: 'HTML',
         content: mailContent

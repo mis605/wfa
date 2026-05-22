@@ -715,27 +715,39 @@ async function loadApprovalRequest(requestId, action) {
     const btnConfirm = document.getElementById('btn-confirm-approval');
     const textarea = document.getElementById('app-catatan-atasan');
     
-    if (req.status !== 'Pending') {
-      // Jika statusnya sudah diubah (sudah disetujui / ditolak sebelumnya)
-      titleText.textContent = `Pengajuan WFA: ${req.status.toUpperCase()}`;
-      labelAtasan.textContent = 'Catatan Atasan (Sudah Diproses)';
+    const isActionReject = action === 'reject';
+    
+    if (req.status === 'Rejected') {
+      // Jika statusnya sudah ditolak / dibatalkan sebelumnya
+      titleText.textContent = 'Pengajuan WFA: DIBATALKAN';
+      labelAtasan.textContent = 'Catatan Penolakan Atasan (Sudah Diproses)';
       textarea.value = req.catatanAtasan || '';
       textarea.disabled = true;
       btnConfirm.disabled = true;
-      btnConfirm.textContent = `Sudah ${req.status}`;
+      btnConfirm.textContent = 'Sudah Ditolak / Dibatalkan';
+      btnConfirm.classList.add('btn--disabled');
+      btnConfirm.style.backgroundColor = '';
+    } else if (req.status === 'Approved' && !isActionReject) {
+      // Jika sudah disetujui dan aksinya bukan penolakan
+      titleText.textContent = 'Pengajuan WFA: DISETUJUI';
+      labelAtasan.textContent = 'Catatan Persetujuan Atasan (Sudah Diproses)';
+      textarea.value = req.catatanAtasan || '';
+      textarea.disabled = true;
+      btnConfirm.disabled = true;
+      btnConfirm.textContent = 'Sudah Disetujui';
       btnConfirm.classList.add('btn--disabled');
       btnConfirm.style.backgroundColor = '';
     } else {
-      // Masih pending, persiapkan input & tombol respon
-      const isApprove = action === 'approve';
-      titleText.textContent = isApprove ? 'Setujui Pengajuan WFA' : 'Tolak Pengajuan WFA';
-      labelAtasan.textContent = isApprove ? 'Catatan / Alasan Persetujuan' : 'Catatan / Alasan Penolakan';
+      // Belum diproses (Pending) ATAU sudah disetujui (Approved) tapi atasan ingin menolak (isActionReject)
+      titleText.textContent = isActionReject ? 'Batalkan Pengajuan WFA' : 'Setujui Pengajuan WFA';
+      labelAtasan.textContent = isActionReject ? 'Catatan / Alasan Pembatalan (Opsional)' : 'Catatan / Alasan Persetujuan (Opsional)';
       textarea.value = '';
+      textarea.placeholder = isActionReject ? 'Contoh: Ada rapat luring penting di kantor...' : 'Contoh: Disetujui, harap standby di Teams...';
       textarea.disabled = false;
       btnConfirm.disabled = false;
-      btnConfirm.textContent = isApprove ? 'Konfirmasi Setujui (Approve)' : 'Konfirmasi Tolak (Reject)';
+      btnConfirm.textContent = isActionReject ? 'Konfirmasi Batalkan WFA (Reject)' : 'Konfirmasi Setujui WFA (Approve)';
       btnConfirm.classList.remove('btn--disabled');
-      btnConfirm.style.backgroundColor = isApprove ? 'var(--green)' : 'var(--red)';
+      btnConfirm.style.backgroundColor = isActionReject ? 'var(--red)' : 'var(--green)';
     }
     
     loadingState.classList.add('hidden');
@@ -764,7 +776,7 @@ async function confirmApproval() {
   
   try {
     await graphService.updateStatusPermohonanWfa(req.id, status, catatanAtasan);
-    showToast(`✓ Pengajuan WFA berhasil ${status === 'Approved' ? 'disetujui' : 'ditolak'}!`, 'success');
+    showToast(`✓ Pengajuan WFA berhasil ${status === 'Approved' ? 'disetujui' : 'ditolak/dibatalkan'}!`, 'success');
     
     // Hapus parameter URL agar tidak terpanggil ulang saat reload
     window.history.replaceState({}, document.title, window.location.pathname);

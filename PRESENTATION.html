@@ -149,6 +149,17 @@
     </div>
 
     <div class="slide">
+        <h2>🔄 Alur Proses & Persetujuan (Implicit Approval)</h2>
+        <p>Aplikasi menggunakan alur <strong>Persetujuan Implisit</strong> untuk mempercepat proses kehadiran:</p>
+        <ul>
+            <li><strong>Auto-Approved:</strong> Setiap pengajuan baru dari karyawan otomatis disimpan dengan status <code>Approved</code> di SharePoint, sehingga karyawan dapat langsung melakukan presensi pada hari H tanpa terhambat verifikasi manual.</li>
+            <li><strong>Notifikasi Email Atasan:</strong> Sistem mengirimkan email notifikasi ke atasan (CC ke HRD & MIS) segera setelah pengajuan dibuat.</li>
+            <li><strong>Opsi Pembatalan Tunggal:</strong> Di dalam email notifikasi, atasan hanya diberikan tautan tunggal untuk membatalkan/menolak pengajuan (Reject/Batalkan), tanpa perlu memproses persetujuan (Approve) secara aktif.</li>
+            <li><strong>Proses Penolakan:</strong> Jika atasan membatalkan, status di SharePoint diubah menjadi <code>Rejected</code> (mengunci tombol absen untuk hari tersebut), dan email pembatalan dikirim kembali ke karyawan dengan catatan/alasan penolakan yang bersifat opsional.</li>
+        </ul>
+    </div>
+
+    <div class="slide">
         <h2>🛠️ Rekomendasi Peningkatan</h2>
         <div class="improvement-list">
             <div class="improvement-item">
