@@ -35,7 +35,7 @@ const APP_CONFIG = {
   logoPerusahaan: "", // URL logo (opsional)
 
   // --- EMAIL NOTIFICATION CONFIG ---
-  emailHrd: "hrd@gos.co.id",
+  emailHrd: "hc.info@gos.co.id",
   emailMis: "mis@gos.co.id",
 };
 
