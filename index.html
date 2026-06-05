@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0d0f12">
-  <meta name="description" content="Sistem Absensi WFA Karyawan berbasis Microsoft 365">
+  <meta name="description" content="Sistem Absensi Karyawan berbasis Microsoft 365">
   
   <!-- PWA Meta -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,7 +20,7 @@
   <!-- Stylesheet -->
   <link rel="stylesheet" href="css/style.css">
   
-  <!-- MSAL.js dimuat secara lokal (bypass AdBlocker/DNS issues) -->
+  <!-- MSAL.js -->
   <script src="js/msal-browser.min.js"></script>
 
   <title>Absen WFA CO</title>
@@ -46,7 +46,6 @@
     <p class="company-name" id="company-name">PT. GOS INDORAYA</p>
 
     <button id="btn-login" class="btn-ms-login">
-      <!-- Microsoft Logo SVG -->
       <svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
         <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
@@ -58,7 +57,7 @@
 
     <p class="login-note">
       Gunakan akun Microsoft 365 perusahaan Anda untuk masuk.
-      Data absensi tersimpan aman di Excel Online organisasi Anda.
+      Data absensi tersimpan aman di SharePoint organisasi Anda.
     </p>
 
     <div id="login-error" class="error-msg hidden"></div>
@@ -83,11 +82,11 @@
     <!-- Main Content Area -->
     <main class="main-content">
 
-      <!-- ===== TAB 1: KALENDER WFA ===== -->
+      <!-- ===== TAB 1: KALENDER ABSENSI (DEFAULT) ===== -->
       <section id="view-calendar" class="hidden">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Kalender WFA Karyawan</h2>
+            <h2 class="section-title">Kalender Kehadiran</h2>
             <p class="section-sub" id="calendar-month-label">-</p>
           </div>
         </div>
@@ -95,6 +94,15 @@
           <button class="btn-sm" id="btn-cal-prev">◀</button>
           <button class="btn-sm" id="btn-cal-next">▶</button>
         </div>
+
+        <!-- Legend -->
+        <div class="calendar-legend">
+          <span class="legend-item legend-item--wfo">WFO</span>
+          <span class="legend-item legend-item--wfa">WFA</span>
+          <span class="legend-item legend-item--visit">Visit</span>
+          <span class="legend-item legend-item--pending">Belum Absen</span>
+        </div>
+
         <div class="calendar-container">
           <div class="calendar-grid-header">
             <div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div><div>Min</div>
@@ -103,7 +111,7 @@
         </div>
       </section>
 
-      <!-- ===== TAB 2: ABSEN WFA ===== -->
+      <!-- ===== TAB 2: ABSEN ===== -->
       <section id="view-absen" class="hidden">
         
         <!-- Greeting Card -->
@@ -119,12 +127,40 @@
           <div class="tanggal-text" id="dash-tanggal">Hari, Tanggal</div>
         </div>
 
-        <!-- Info WFA Hari Ini -->
-        <div class="wfa-status-card" id="wfa-status-card">
-          <p id="wfa-status-text">Memeriksa jadwal WFA...</p>
+        <!-- Pilihan Tipe Kehadiran -->
+        <div class="tipe-card">
+          <p class="tipe-card__label">Pilih Tipe Kehadiran Hari Ini</p>
+          <div class="tipe-radio-group">
+            <label class="tipe-radio" id="label-wfo">
+              <input type="radio" name="tipe-absen" value="WFO" id="radio-wfo">
+              <span class="tipe-radio__box">
+                <span class="tipe-radio__icon">🏢</span>
+                <span class="tipe-radio__text">WFO</span>
+              </span>
+            </label>
+            <label class="tipe-radio" id="label-wfa">
+              <input type="radio" name="tipe-absen" value="WFA" id="radio-wfa">
+              <span class="tipe-radio__box">
+                <span class="tipe-radio__icon">🏠</span>
+                <span class="tipe-radio__text">WFA</span>
+              </span>
+            </label>
+            <label class="tipe-radio" id="label-visit">
+              <input type="radio" name="tipe-absen" value="Visit" id="radio-visit">
+              <span class="tipe-radio__box">
+                <span class="tipe-radio__icon">🚗</span>
+                <span class="tipe-radio__text">Visit</span>
+              </span>
+            </label>
+          </div>
         </div>
 
-        <!-- Dashboard Absensi (Hanya tampil jika ada jadwal WFA hari ini) -->
+        <!-- Info status WFA/Visit (hanya tampil jika pilih WFA/Visit) -->
+        <div id="wfa-status-card" class="wfa-status-card hidden">
+          <p id="wfa-status-text"></p>
+        </div>
+
+        <!-- Dashboard Absensi (Hanya tampil jika boleh absen) -->
         <div id="absen-dashboard-content" class="hidden">
           <!-- Status Hari Ini -->
           <div class="today-card">
@@ -165,12 +201,33 @@
 
       </section>
 
-      <!-- ===== TAB 3: REQUEST WFA ===== -->
+      <!-- ===== TAB 3: REQUEST WFA / VISIT ===== -->
       <section id="view-request" class="hidden">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Pengajuan Jadwal WFA</h2>
-            <p class="section-sub">Pilih tanggal WFA yang Anda ajukan</p>
+            <h2 class="section-title">Pengajuan Jadwal</h2>
+            <p class="section-sub">Pilih tanggal dan tipe pengajuan</p>
+          </div>
+        </div>
+
+        <!-- Pilihan Tipe Request -->
+        <div class="tipe-card" style="margin-bottom: 16px;">
+          <p class="tipe-card__label">Tipe Pengajuan</p>
+          <div class="tipe-radio-group">
+            <label class="tipe-radio" id="label-req-wfa">
+              <input type="radio" name="tipe-request" value="WFA" id="radio-req-wfa" checked>
+              <span class="tipe-radio__box">
+                <span class="tipe-radio__icon">🏠</span>
+                <span class="tipe-radio__text">WFA</span>
+              </span>
+            </label>
+            <label class="tipe-radio" id="label-req-visit">
+              <input type="radio" name="tipe-request" value="Visit" id="radio-req-visit">
+              <span class="tipe-radio__box">
+                <span class="tipe-radio__icon">🚗</span>
+                <span class="tipe-radio__text">Visit</span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -198,8 +255,8 @@
           </div>
 
           <div class="form-group" style="margin-top: 16px;">
-            <label for="req-catatan" class="form-label">Catatan / Alasan WFA *</label>
-            <textarea id="req-catatan" class="form-textarea" placeholder="Tuliskan alasan pengajuan WFA Anda..." required></textarea>
+            <label for="req-catatan" class="form-label">Catatan / Alasan *</label>
+            <textarea id="req-catatan" class="form-textarea" placeholder="Tuliskan alasan pengajuan..." required></textarea>
           </div>
 
           <div class="manager-info" id="manager-info-container">
@@ -208,15 +265,15 @@
           </div>
 
           <button class="btn-primary" id="btn-submit-request" style="width: 100%; margin-top: 16px;" disabled>
-            Kirim Pengajuan WFA
+            Kirim Pengajuan
           </button>
         </div>
       </section>
 
-      <!-- ===== VIEW: PERSATUAN / APPROVAL ATASAN (URL ROUTING) ===== -->
+      <!-- ===== VIEW: APPROVAL ATASAN (URL ROUTING) ===== -->
       <section id="view-approval" class="hidden">
         <div class="approval-container">
-          <h2 class="section-title" id="approval-title-text">Persetujuan Pengajuan WFA</h2>
+          <h2 class="section-title" id="approval-title-text">Persetujuan Pengajuan</h2>
           
           <div id="approval-loading-state">
             <div class="loading-ring"></div>
@@ -234,7 +291,11 @@
                 <span id="app-nip">-</span>
               </div>
               <div class="detail-row">
-                <span class="detail-lbl">Tanggal WFA:</span>
+                <span class="detail-lbl">Tipe:</span>
+                <span id="app-tipe" class="status-badge">-</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-lbl">Tanggal:</span>
                 <div id="app-tanggal-list" class="app-dates-list"></div>
               </div>
               <div class="detail-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
@@ -244,13 +305,13 @@
             </div>
 
             <div class="form-group" style="margin-top: 16px;">
-              <label for="app-catatan-atasan" class="form-label" id="app-label-atasan">Catatan / Alasan Persetujuan</label>
-              <textarea id="app-catatan-atasan" class="form-textarea" placeholder="Contoh: Disetujui, harap standby di Teams..."></textarea>
+              <label for="app-catatan-atasan" class="form-label" id="app-label-atasan">Catatan / Alasan Penolakan</label>
+              <textarea id="app-catatan-atasan" class="form-textarea" placeholder="Contoh: Ada rapat luring penting di kantor..."></textarea>
             </div>
 
             <div class="approval-actions" style="margin-top: 20px;">
-              <button class="btn-primary" id="btn-confirm-approval" style="width: 100%;">
-                Konfirmasi Persetujuan
+              <button class="btn-primary btn--danger" id="btn-confirm-approval" style="width: 100%;">
+                Batalkan / Tolak Pengajuan
               </button>
               <button class="btn-secondary" id="btn-cancel-approval" style="width: 100%; margin-top: 8px;">
                 Batal & Buka Kalender
@@ -260,136 +321,84 @@
         </div>
       </section>
 
-      <!-- ===== REKAP (Admin) ===== -->
-      <section id="view-rekap" class="hidden">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Rekap Absensi</h2>
-            <p class="section-sub" id="rekap-periode">-</p>
-          </div>
-          <button class="btn-sm" id="btn-export-csv">↓ CSV</button>
-        </div>
-        <div class="search-bar">
-          <input type="search" class="search-input" id="rekap-search" 
-                 placeholder="Cari nama / NIP...">
-        </div>
-        <div class="table-wrapper">
-          <table class="rekap-table">
-            <thead>
-              <tr>
-                <th>NIP</th>
-                <th>Nama</th>
-                <th>Tanggal</th>
-                <th>Masuk</th>
-                <th>Keluar</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="rekap-tbody">
-              <tr><td colspan="6" class="loading-cell">Pilih menu untuk memuat.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ===== KARYAWAN (Admin) ===== -->
-      <section id="view-karyawan" class="hidden">
-        <div class="section-header">
-          <h2 class="section-title">Data Karyawan</h2>
-        </div>
-        <div id="karyawan-list">
-          <p class="empty-state">Pilih menu untuk memuat.</p>
-        </div>
-      </section>
-
     </main><!-- end main-content -->
 
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <button class="nav__item nav__item--active" data-nav="calendar">
         <div class="nav__icon">📅</div>
-        <span>Kalender WFA</span>
+        <span>Kalender</span>
       </button>
       <button class="nav__item" data-nav="absen">
         <div class="nav__icon">🕒</div>
-        <span>Absen WFA</span>
+        <span>Absen</span>
       </button>
       <button class="nav__item" data-nav="request">
         <div class="nav__icon">✍️</div>
-        <span>Request WFA</span>
+        <span>Request</span>
       </button>
     </nav>
-
-    <!-- FAB tambah karyawan -->
-    <button class="fab hidden" id="btn-tambah-karyawan" title="Tambah Karyawan">+</button>
 
   </div><!-- end app-shell -->
 
 </div><!-- end #app -->
 
-<!-- ========== MODAL ABSEN ========== -->
+<!-- ========== MODAL KONFIRMASI ABSEN ========== -->
 <div id="modal-absen" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-absen-title">
   <div class="modal__sheet">
     <div class="modal__handle"></div>
     <div class="modal__header">
-      <h2 class="modal__title" id="modal-absen-title">Absen Masuk</h2>
+      <h2 class="modal__title" id="modal-absen-title">Konfirmasi Absen</h2>
       <button class="btn-icon" id="btn-close-modal" aria-label="Tutup">✕</button>
     </div>
 
-    <!-- Keterangan -->
-    <div class="form-group" style="margin-top: 15px;">
-      <label for="absen-keterangan" class="form-label">Keterangan (opsional)</label>
-      <textarea id="absen-keterangan" class="form-textarea" 
-                placeholder="Contoh: WFA dari rumah, koneksi internet lancar..."></textarea>
+    <!-- Info konfirmasi -->
+    <div class="konfirmasi-info" id="konfirmasi-info">
+      <div class="konfirmasi-row">
+        <span>Tipe</span>
+        <strong id="konfirmasi-tipe">WFO</strong>
+      </div>
+      <div class="konfirmasi-row">
+        <span>Waktu</span>
+        <strong id="konfirmasi-waktu">--:--</strong>
+      </div>
+      <div class="konfirmasi-row">
+        <span>Mode</span>
+        <strong id="konfirmasi-mode">Masuk</strong>
+      </div>
     </div>
 
     <!-- Submit -->
     <button class="btn-primary" id="btn-submit-absen" style="width: 100%; margin-top: 15px;">
-      Absen Sekarang
+      Konfirmasi & Absen
     </button>
   </div>
 </div>
 
-<!-- ========== MODAL TAMBAH KARYAWAN ========== -->
-<div id="modal-karyawan" class="modal-karyawan hidden" role="dialog" aria-modal="true">
-  <div class="modal-karyawan__content">
-    <div class="modal__header" style="margin-bottom:20px;">
-      <h2 class="modal__title">Tambah Karyawan</h2>
-      <button class="btn-icon" id="btn-close-karyawan">✕</button>
+<!-- ========== MODAL INFO BELUM REQUEST ========== -->
+<div id="modal-belum-request" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal__sheet">
+    <div class="modal__handle"></div>
+    <div class="modal__header">
+      <h2 class="modal__title">⚠️ Belum Ada Pengajuan</h2>
     </div>
-    
-    <form id="form-karyawan" onsubmit="return false;">
-      <div class="form-group">
-        <label class="form-label">NIP *</label>
-        <input type="text" id="k-nip" class="form-input" placeholder="Contoh: 20240001" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Nama Lengkap *</label>
-        <input type="text" id="k-nama" class="form-input" placeholder="Nama lengkap karyawan" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email Microsoft 365 *</label>
-        <input type="email" id="k-email" class="form-input" placeholder="nama@perusahaan.com" required>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Departemen</label>
-        <input type="text" id="k-departemen" class="form-input" placeholder="Contoh: Engineering">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Jabatan</label>
-        <input type="text" id="k-jabatan" class="form-input" placeholder="Contoh: Software Engineer">
-      </div>
-      <button type="button" class="btn-primary" id="btn-simpan-karyawan">Simpan</button>
-    </form>
+    <div class="info-box info-box--warning">
+      <p id="belum-request-text">Anda belum memiliki pengajuan WFA yang disetujui untuk hari ini.</p>
+      <p style="margin-top: 8px; font-size: 0.82rem; color: var(--text-secondary);">Silakan ajukan terlebih dahulu melalui halaman Request, kemudian kembali ke halaman ini setelah pengajuan terkirim.</p>
+    </div>
+    <div style="display: flex; gap: 10px; margin-top: 16px;">
+      <button class="btn-secondary" id="btn-belum-request-tutup" style="flex: 1;">Tutup</button>
+      <button class="btn-primary" id="btn-belum-request-ke-request" style="flex: 1;">Ke Halaman Request</button>
+    </div>
   </div>
 </div>
 
-<!-- ========== MODAL DETAIL CALENDAR WFA ========== -->
+<!-- ========== MODAL DETAIL CALENDAR ========== -->
 <div id="modal-calendar-detail" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-calendar-title">
   <div class="modal__sheet">
     <div class="modal__handle"></div>
     <div class="modal__header">
-      <h2 class="modal__title" id="modal-calendar-title">Karyawan WFA</h2>
+      <h2 class="modal__title" id="modal-calendar-title">Detail Kehadiran</h2>
       <button class="btn-icon" id="btn-close-calendar-modal" aria-label="Tutup">✕</button>
     </div>
     
@@ -398,7 +407,6 @@
     </div>
     
     <div id="calendar-detail-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 4px;">
-      <!-- List of employees WFA will be appended here dynamically -->
     </div>
   </div>
 </div>
@@ -407,10 +415,7 @@
 <script type="module" src="js/app.js"></script>
 
 <script>
-  // Tampilkan nama perusahaan dari config
-  // (akan diupdate setelah config.js load)
   document.addEventListener('DOMContentLoaded', () => {
-    // Fallback jika module belum load
     setTimeout(() => {
       try {
         const companyEl = document.getElementById('company-name');
@@ -421,13 +426,6 @@
     }, 500);
   });
 
-  // App shell toggle helper
-  function showAppShell(show) {
-    const shell = document.getElementById('app-shell');
-    if (shell) shell.classList.toggle('hidden', !show);
-  }
-
-  // Register Service Worker untuk PWA
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
