@@ -93,6 +93,7 @@
         <div class="month-nav">
           <button class="btn-sm" id="btn-cal-prev">◀</button>
           <button class="btn-sm" id="btn-cal-next">▶</button>
+          <button class="btn-sm btn-sm--accent hidden" id="btn-cal-today">Hari Ini</button>
         </div>
 
         <!-- Legend -->
@@ -368,6 +369,11 @@
       </div>
     </div>
 
+    <!-- Progress bar -->
+    <div id="absen-progress-wrap" class="absen-progress-wrap hidden">
+      <div id="absen-progress" class="absen-progress-bar"></div>
+    </div>
+
     <!-- Submit -->
     <button class="btn-primary" id="btn-submit-absen" style="width: 100%; margin-top: 15px;">
       Konfirmasi & Absen
@@ -408,6 +414,24 @@
     
     <div id="calendar-detail-list" style="display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow-y: auto; padding-right: 4px;">
     </div>
+  </div>
+</div>
+
+<!-- ========== MODAL NOTIFIKASI REQUEST DITOLAK ========== -->
+<div id="modal-rejected-notif" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal__sheet">
+    <div class="modal__handle"></div>
+    <div class="modal__header">
+      <h2 class="modal__title">⚠️ Pengajuan Ditolak</h2>
+      <button class="btn-icon" id="btn-close-rejected-notif" aria-label="Tutup">✕</button>
+    </div>
+    <div class="info-box info-box--warning" style="margin-bottom: 12px;">
+      Atasan Anda telah membatalkan/menolak pengajuan berikut:
+    </div>
+    <div id="rejected-notif-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    <button class="btn-primary" id="btn-close-rejected-notif-ok" style="width: 100%; margin-top: 16px;">
+      Mengerti
+    </button>
   </div>
 </div>
 
