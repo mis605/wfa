@@ -1,5 +1,5 @@
 // ============================================================
-// APP.JS - Logika utama & UI controller (SharePoint Lists & 3-Tab)
+// APP.JS - Logika utama & UI controller (Revisi Flow Baru)
 // ============================================================
 
 import { APP_CONFIG } from './config.js';
@@ -14,14 +14,19 @@ import {
 // STATE GLOBAL
 // ============================================================
 const state = {
-  user: null,          // MS user profile
-  karyawan: null,      // Data karyawan dari SharePoint List
+  user: null,
+  karyawan: null,
   absensiHariIni: null,
-  calendarDate: new Date(), // Tanggal aktif Kalender (Tab 1)
-  pickerDate: new Date(),   // Tanggal aktif Picker Request (Tab 3)
-  selectedDates: [],        // Daftar tanggal terpilih ("YYYY-MM-DD")
-  approvedWfaList: [],      // Jadwal WFA yang disetujui bulan ini
-  currentApprovalRequest: null // Permohonan yang sedang ditinjau atasan
+  tipeAbsenDipilih: null,       // 'WFO' | 'WFA' | 'Visit'
+  tipeRequestDipilih: 'WFA',    // 'WFA' | 'Visit'
+  absenMode: 'masuk',           // 'masuk' | 'keluar'
+  calendarDate: new Date(),
+  pickerDate: new Date(),
+  selectedDates: [],
+  // Data kalender: semua absensi + request pending
+  calendarAbsenList: [],        // [{nip, nama, tanggal, tipe, jamMasuk, jamKeluar}]
+  calendarPendingList: [],      // [{nip, nama, tanggal, tipe}] - approved request tapi belum absen
+  currentApprovalRequest: null
 };
 
 // ============================================================
@@ -40,10 +45,8 @@ function showView(viewName) {
   const appShell = document.getElementById('app-shell');
   const isAuthView = viewName === 'login' || viewName === 'loading';
   
-  // Tampilkan/sembunyikan app-shell
   if (appShell) appShell.classList.toggle('hidden', isAuthView);
   
-  // Tampilkan view yang dipilih
   Object.entries(views).forEach(([name, el]) => {
     if (!el) return;
     if (isAuthView) {
@@ -59,7 +62,6 @@ function showView(viewName) {
   
   state.currentView = viewName;
   
-  // Update status aktif navigasi bottom-nav
   document.querySelectorAll('[data-nav]').forEach(el => {
     el.classList.toggle('nav__item--active', el.dataset.nav === viewName);
   });
@@ -92,12 +94,8 @@ async function loadUserSession() {
   document.getElementById('loading-text').textContent = 'Memuat profil Microsoft 365...';
   
   try {
-    // Ambil profil MS pengguna
-    console.log('[App] Loading user session. Fetching user profile...');
     state.user = await authService.getUserProfile();
-    console.log('[App] User profile retrieved:', state.user);
     
-    // Debug list columns to see exact internal names of columns in SharePoint
     try {
       await graphService.debugListColumns(APP_CONFIG.listKaryawanId, 'Karyawan');
       await graphService.debugListColumns(APP_CONFIG.listAbsensiId, 'Absensi');
@@ -107,36 +105,24 @@ async function loadUserSession() {
     }
     
     document.getElementById('loading-text').textContent = 'Memverifikasi data karyawan...';
-    // Cek data karyawan di list SharePoint
     const userEmail = state.user.mail || state.user.userPrincipalName;
-    console.log('[App] Verifying employee status for email:', userEmail);
-    
-    try {
-      state.karyawan = await graphService.getKaryawanByEmail(userEmail);
-      console.log('[App] Employee verification result:', state.karyawan);
-    } catch (karyawanError) {
-      console.error('[App] Error in getKaryawanByEmail:', karyawanError);
-      throw karyawanError;
-    }
+    state.karyawan = await graphService.getKaryawanByEmail(userEmail);
     
     if (!state.karyawan) {
-      console.warn('[App] Employee not found in SharePoint list');
       showView('login');
       document.getElementById('login-error').textContent = 
-        'Akun Anda belum terdaftar sebagai karyawan di SharePoint. Silakan hubungi admin.';
+        'Akun Anda belum terdaftar sebagai karyawan. Silakan hubungi admin.';
       document.getElementById('login-error').classList.remove('hidden');
       return;
     }
 
     if (state.karyawan.statusAktif !== 'Aktif') {
-      console.warn('[App] Employee account is not Active:', state.karyawan.statusAktif);
       showView('login');
       document.getElementById('login-error').textContent = 'Akun Anda berstatus Tidak Aktif. Silakan hubungi admin.';
       document.getElementById('login-error').classList.remove('hidden');
       return;
     }
 
-    // Load avatar/foto profil
     const photoUrl = await authService.getUserPhoto();
     const initials = getInitials(state.karyawan.nama);
     
@@ -150,7 +136,7 @@ async function loadUserSession() {
       }
     });
 
-    // Cek URL parameters untuk aksi approval persetujuan atasan
+    // Cek URL parameters untuk approval atasan
     const params = new URLSearchParams(window.location.search);
     const action = params.get('action');
     const requestId = params.get('id');
@@ -158,7 +144,6 @@ async function loadUserSession() {
     if (action && requestId) {
       await loadApprovalRequest(requestId, action);
     } else {
-      // Landing page default: Kalender WFA (Tab 1)
       showView('calendar');
       await loadCalendar();
     }
@@ -175,7 +160,6 @@ function getInitials(nama) {
   return nama.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
 }
 
-// Live clock helper
 function updateClock() {
   const clockEl = document.getElementById('live-clock');
   if (!clockEl) return;
@@ -205,7 +189,8 @@ function getStatusClass(status) {
 }
 
 // ============================================================
-// TAB 1: KALENDER WFA
+// TAB 1: KALENDER KEHADIRAN
+// Menampilkan: siapa sudah absen (WFO/WFA/Visit) + siapa belum absen
 // ============================================================
 async function loadCalendar(offset = 0) {
   if (offset !== 0) {
@@ -226,74 +211,99 @@ async function loadCalendar(offset = 0) {
   container.innerHTML = '<div style="grid-column: span 7; text-align: center; padding: 24px;"><span class="spinner"></span></div>';
   
   try {
-    const rawList = await graphService.getApprovedWfaByBulan(month, year);
-    
-    if (state.karyawan) {
-      const userEmail = (state.karyawan.email || '').toLowerCase().trim();
-      const userManagerEmail = (state.karyawan.emailAtasan || '').toLowerCase().trim();
-      const userNip = (state.karyawan.nip || '').toLowerCase().trim();
+    const userEmail = (state.karyawan.email || '').toLowerCase().trim();
+    const userManagerEmail = (state.karyawan.emailAtasan || '').toLowerCase().trim();
+    const userNip = (state.karyawan.nip || '').toLowerCase().trim();
 
-      state.approvedWfaList = rawList.filter(item => {
-        const itemManager = (item.emailAtasan || '').toLowerCase().trim();
-        const itemNip = (item.nip || '').toLowerCase().trim();
+    // Helper: cek apakah item ini visible untuk user login
+    const isVisible = (itemManagerEmail, itemNip) => {
+      const mgrEmail = (itemManagerEmail || '').toLowerCase().trim();
+      const nip = (itemNip || '').toLowerCase().trim();
+      // Bawahan langsung user
+      const isSubordinate = userEmail && mgrEmail === userEmail;
+      // Sesama peer (atasan sama, BUKAN atasan itu sendiri)
+      const isSamePeer = userManagerEmail && mgrEmail === userManagerEmail && nip !== userNip;
+      // Diri sendiri
+      const isSelf = userNip && nip === userNip;
+      return isSubordinate || isSamePeer || isSelf;
+    };
 
-        // 1. Memiliki atasan yang sama (Satu Atasan)
-        const isSameManager = userManagerEmail && itemManager === userManagerEmail;
+    // 1. Ambil semua absensi bulan ini
+    const allAbsensi = await graphService.getAbsensiBulanTertentu_All(month, year);
+    state.calendarAbsenList = allAbsensi.filter(item =>
+      isVisible(item.emailAtasan, item.nip)
+    );
 
-        // 2. Merupakan bawahan langsung (User login adalah atasannya)
-        const isSubordinate = userEmail && itemManager === userEmail;
+    // 2. Ambil semua request approved bulan ini (WFA + Visit)
+    const allApproved = await graphService.getApprovedRequestByBulan(month, year);
+    const approvedFiltered = allApproved.filter(item =>
+      isVisible(item.emailAtasan, item.nip)
+    );
 
-        // 3. Milik user itu sendiri (NIP/NRK sama)
-        const isSelf = userNip && itemNip === userNip;
+    // 3. Hitung siapa yang approved tapi belum absen
+    // pending = approved request tapi tidak ada record absensi pada tanggal tsb
+    state.calendarPendingList = [];
+    const todayStr = getTodayString();
 
-        return isSameManager || isSubordinate || isSelf;
-      });
-    } else {
-      state.approvedWfaList = rawList;
+    for (const req of approvedFiltered) {
+      // Hanya tampilkan pending untuk hari ini atau sebelumnya (bukan masa depan)
+      if (req.tanggal > todayStr) continue;
+      
+      const sudahAbsen = state.calendarAbsenList.some(
+        ab => ab.nip === req.nip && ab.tanggal === req.tanggal
+      );
+      if (!sudahAbsen) {
+        state.calendarPendingList.push(req);
+      }
     }
     
     renderCalendarGrid(month, year);
   } catch (err) {
-    container.innerHTML = `<div style="grid-column: span 7; text-align: center; padding: 24px; color: var(--red);">Gagal memuat jadwal kalender: ${err.message}</div>`;
+    container.innerHTML = `<div style="grid-column: span 7; text-align: center; padding: 24px; color: var(--red);">Gagal memuat kalender: ${err.message}</div>`;
   }
 }
 
 function renderCalendarGrid(month, year) {
   const container = document.getElementById('calendar-days-container');
   const daysInMonth = new Date(year, month, 0).getDate();
-  
   const firstDayIndex = new Date(year, month - 1, 1).getDay();
-  // Senin ke Minggu index mapping
   const startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
   
   let cellsHtml = '';
   
-  // Sel kosong sebelum tanggal 1
   for (let i = 0; i < startOffset; i++) {
     cellsHtml += '<div class="calendar-day-cell calendar-day-cell--empty"></div>';
   }
   
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const todayStr = getTodayString();
   
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDayStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     
-    // Cari daftar WFA yang disetujui untuk hari ini
-    const wfaOnDay = state.approvedWfaList.filter(item => item.tanggal === currentDayStr);
+    const absenOnDay = state.calendarAbsenList.filter(item => item.tanggal === currentDayStr);
+    const pendingOnDay = state.calendarPendingList.filter(item => item.tanggal === currentDayStr);
     
     const isToday = currentDayStr === todayStr;
     const todayClass = isToday ? 'calendar-day-cell--today' : '';
     
-    const wfaHtml = wfaOnDay.map(w => `
-      <span class="calendar-wfa-name" title="${w.nama} (${w.nip})">${w.nama}</span>
-    `).join('');
+    // Render nama dengan badge tipe
+    const absenHtml = absenOnDay.map(w => {
+      const tipeClass = (w.tipe || 'WFO').toLowerCase();
+      return `<span class="calendar-entry calendar-entry--${tipeClass}" title="${w.nama} - ${w.tipe || 'WFO'}">${w.nama}</span>`;
+    }).join('');
+
+    const pendingHtml = pendingOnDay.map(w => {
+      const tipeClass = (w.tipe || 'WFA').toLowerCase();
+      return `<span class="calendar-entry calendar-entry--pending" title="${w.nama} - Belum Absen (${w.tipe})">${w.nama}*</span>`;
+    }).join('');
     
     cellsHtml += `
       <div class="calendar-day-cell ${todayClass}" data-date="${currentDayStr}" style="cursor: pointer;">
         <span class="calendar-day-number">${day}</span>
         <div class="calendar-wfa-list">
-          ${wfaHtml}
+          ${absenHtml}
+          ${pendingHtml}
         </div>
       </div>
     `;
@@ -311,27 +321,60 @@ function openCalendarDetailModal(dateStr) {
   
   dateEl.textContent = formatTanggal(dateStr + 'T00:00:00');
   
-  // Ambil list karyawan WFA pada tanggal tersebut
-  const wfaOnDay = state.approvedWfaList.filter(item => item.tanggal === dateStr);
+  const absenOnDay = state.calendarAbsenList.filter(item => item.tanggal === dateStr);
+  const pendingOnDay = state.calendarPendingList.filter(item => item.tanggal === dateStr);
   
-  if (wfaOnDay.length === 0) {
-    listEl.innerHTML = `
-      <div style="text-align: center; color: var(--text-muted); padding: 20px; font-style: italic;">
-        Tidak ada karyawan WFA pada tanggal ini.
-      </div>
-    `;
+  let html = '';
+
+  if (absenOnDay.length === 0 && pendingOnDay.length === 0) {
+    html = `<div style="text-align: center; color: var(--text-muted); padding: 20px; font-style: italic;">Tidak ada data kehadiran pada tanggal ini.</div>`;
   } else {
-    listEl.innerHTML = wfaOnDay.map(w => `
-      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); transition: border-color 0.2s;">
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <strong style="color: var(--text-primary); font-size: 0.9rem;">${w.nama}</strong>
-          <span style="color: var(--text-muted); font-size: 0.72rem; font-family: var(--font-mono);">NIP/NRK: ${w.nip}</span>
-        </div>
-        <span class="status-badge status--success" style="font-size: 0.65rem; padding: 2px 8px;">Approved</span>
-      </div>
-    `).join('');
+    // Sudah absen
+    if (absenOnDay.length > 0) {
+      html += `<div class="detail-group-label">✅ Sudah Absen</div>`;
+      html += absenOnDay.map(w => {
+        const tipeClass = (w.tipe || 'WFO').toLowerCase();
+        const durasi = w.jamMasuk && w.jamKeluar ? hitungDurasi(w.jamMasuk, w.jamKeluar) : '-';
+        return `
+          <div class="calendar-detail-item">
+            <div class="calendar-detail-item__left">
+              <strong>${w.nama}</strong>
+              <span style="color: var(--text-muted); font-size: 0.72rem; font-family: var(--font-mono);">NIP: ${w.nip}</span>
+            </div>
+            <div class="calendar-detail-item__right">
+              <span class="tipe-badge tipe-badge--${tipeClass}">${w.tipe || 'WFO'}</span>
+              <span style="font-size: 0.72rem; color: var(--text-secondary); font-family: var(--font-mono);">
+                ${w.jamMasuk ? w.jamMasuk.substring(0,5) : '--'} – ${w.jamKeluar ? w.jamKeluar.substring(0,5) : '--'}
+              </span>
+              ${durasi !== '-' ? `<span style="font-size: 0.7rem; color: var(--text-muted);">${durasi}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Belum absen (approved request tapi tidak absen)
+    if (pendingOnDay.length > 0) {
+      html += `<div class="detail-group-label" style="margin-top: 12px;">⏳ Belum Absen</div>`;
+      html += pendingOnDay.map(w => {
+        const tipeClass = (w.tipe || 'WFA').toLowerCase();
+        return `
+          <div class="calendar-detail-item">
+            <div class="calendar-detail-item__left">
+              <strong>${w.nama}</strong>
+              <span style="color: var(--text-muted); font-size: 0.72rem; font-family: var(--font-mono);">NIP: ${w.nip}</span>
+            </div>
+            <div class="calendar-detail-item__right">
+              <span class="tipe-badge tipe-badge--${tipeClass}">${w.tipe}</span>
+              <span style="font-size: 0.7rem; color: var(--yellow);">Belum Absen</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
   }
   
+  listEl.innerHTML = html;
   modal.classList.remove('hidden');
   modal.classList.add('modal--show');
 }
@@ -345,55 +388,109 @@ function closeCalendarDetailModal() {
 }
 
 // ============================================================
-// TAB 2: ABSEN WFA
+// TAB 2: ABSEN
+// Flow: pilih tipe (WFO/WFA/Visit) → cek eligibility → absen
 // ============================================================
-let absenMode = 'masuk'; // 'masuk' | 'keluar'
-
 async function loadAbsen() {
-  const statusCard = document.getElementById('wfa-status-card');
-  const statusText = document.getElementById('wfa-status-text');
-  const dashboardContent = document.getElementById('absen-dashboard-content');
-  
-  statusCard.className = 'wfa-status-card';
-  statusText.textContent = 'Memeriksa jadwal WFA...';
-  dashboardContent.classList.add('hidden');
-  
-  // Update header info kartu greeting
+  // Update header
   document.getElementById('dash-nama').textContent = state.karyawan.nama;
   document.getElementById('dash-jabatan').textContent = `${state.karyawan.jabatan} • ${state.karyawan.departemen}`;
   document.getElementById('dash-tanggal').textContent = formatTanggal(new Date().toISOString());
   
   updateClock();
+
+  // Reset UI ke awal
+  resetAbsenUI();
   
+  // Set config jam
+  const infoMasuk = document.getElementById('info-jam-masuk');
+  const infoKeluar = document.getElementById('info-jam-keluar');
+  if (infoMasuk) infoMasuk.textContent = `${APP_CONFIG.jamMasukMulai}–${APP_CONFIG.jamMasukSelesai}`;
+  if (infoKeluar) infoKeluar.textContent = `${APP_CONFIG.jamKeluarMulai}–${APP_CONFIG.jamKeluarSelesai}`;
+}
+
+function resetAbsenUI() {
+  // Reset radio
+  document.querySelectorAll('input[name="tipe-absen"]').forEach(r => r.checked = false);
+  state.tipeAbsenDipilih = null;
+
+  // Sembunyikan status dan dashboard
+  const statusCard = document.getElementById('wfa-status-card');
+  const dashboardContent = document.getElementById('absen-dashboard-content');
+  statusCard.classList.add('hidden');
+  statusCard.className = 'wfa-status-card hidden';
+  dashboardContent.classList.add('hidden');
+}
+
+async function onTipeAbsenChange(tipe) {
+  state.tipeAbsenDipilih = tipe;
+  
+  const statusCard = document.getElementById('wfa-status-card');
+  const statusText = document.getElementById('wfa-status-text');
+  const dashboardContent = document.getElementById('absen-dashboard-content');
+  
+  dashboardContent.classList.add('hidden');
+  statusCard.classList.remove('hidden');
+  statusCard.className = 'wfa-status-card';
+  statusText.textContent = 'Memeriksa...';
+
   try {
-    const todayStr = getTodayString();
-    
-    // Verifikasi apakah atasan menyetujui WFA hari ini
-    const requests = await graphService.getPermohonanWfa(state.user.mail || state.user.userPrincipalName);
-    const approvedForToday = requests.some(req => {
-      if (req.status !== 'Approved') return false;
-      const dates = req.tanggalWfa ? req.tanggalWfa.split(',').map(d => d.trim()) : [];
-      return dates.includes(todayStr);
-    });
-    
-    if (!approvedForToday) {
-      statusCard.className = 'wfa-status-card wfa-status-card--none';
-      statusText.textContent = 'Anda tidak memiliki jadwal WFA yang disetujui hari ini.';
-      return;
-    }
-    
-    statusCard.className = 'wfa-status-card wfa-status-card--approved';
-    statusText.textContent = 'Jadwal WFA Anda disetujui untuk hari ini.';
-    dashboardContent.classList.remove('hidden');
-    
-    // Load status jam absen masuk/keluar hari ini
+    // Ambil absensi hari ini terlebih dahulu (untuk semua tipe)
     state.absensiHariIni = await graphService.getAbsensiHariIni(state.karyawan.nip);
-    renderAbsenDashboard();
-    
+
+    if (tipe === 'WFO') {
+      // WFO: langsung boleh absen
+      statusCard.className = 'wfa-status-card wfa-status-card--approved';
+      statusText.textContent = '✅ Kehadiran WFO. Silakan absen.';
+      dashboardContent.classList.remove('hidden');
+      renderAbsenDashboard();
+
+    } else {
+      // WFA / Visit: cek apakah ada request approved untuk hari ini
+      const todayStr = getTodayString();
+      const requests = await graphService.getPermohonanWfa(
+        state.user.mail || state.user.userPrincipalName
+      );
+      
+      const approvedForToday = requests.some(req => {
+        if (req.status !== 'Approved') return false;
+        if ((req.tipe || 'WFA') !== tipe) return false;
+        const dates = req.tanggalWfa ? req.tanggalWfa.split(',').map(d => d.trim()) : [];
+        return dates.includes(todayStr);
+      });
+
+      if (!approvedForToday) {
+        statusCard.className = 'wfa-status-card wfa-status-card--none';
+        statusText.textContent = `⚠️ Anda belum memiliki pengajuan ${tipe} yang disetujui untuk hari ini.`;
+        // Tampilkan modal info
+        openBelumRequestModal(tipe);
+        return;
+      }
+
+      statusCard.className = 'wfa-status-card wfa-status-card--approved';
+      statusText.textContent = `✅ Pengajuan ${tipe} Anda disetujui untuk hari ini.`;
+      dashboardContent.classList.remove('hidden');
+      renderAbsenDashboard();
+    }
+
   } catch (err) {
     statusCard.className = 'wfa-status-card wfa-status-card--rejected';
-    statusText.textContent = 'Gagal memeriksa jadwal WFA: ' + err.message;
+    statusText.textContent = 'Gagal memeriksa data: ' + err.message;
   }
+}
+
+function openBelumRequestModal(tipe) {
+  const modal = document.getElementById('modal-belum-request');
+  const text = document.getElementById('belum-request-text');
+  text.textContent = `Anda belum memiliki pengajuan ${tipe} yang disetujui untuk hari ini. Ajukan terlebih dahulu melalui halaman Request.`;
+  modal.classList.remove('hidden');
+  modal.classList.add('modal--show');
+}
+
+function closeBelumRequestModal() {
+  const modal = document.getElementById('modal-belum-request');
+  modal.classList.remove('modal--show');
+  setTimeout(() => modal.classList.add('hidden'), 300);
 }
 
 function renderAbsenDashboard() {
@@ -403,7 +500,6 @@ function renderAbsenDashboard() {
   const masukEl = document.getElementById('dash-masuk');
   const keluarEl = document.getElementById('dash-keluar');
   const durasiEl = document.getElementById('dash-durasi');
-  
   const btnMasuk = document.getElementById('btn-absen-masuk');
   const btnKeluar = document.getElementById('btn-absen-keluar');
   
@@ -413,7 +509,6 @@ function renderAbsenDashboard() {
     masukEl.textContent = '--:--';
     keluarEl.textContent = '--:--';
     durasiEl.textContent = '--';
-    
     btnMasuk.disabled = false;
     btnMasuk.classList.remove('btn--disabled');
     btnKeluar.disabled = true;
@@ -438,22 +533,20 @@ function renderAbsenDashboard() {
       btnKeluar.classList.add('btn--disabled');
     }
   }
-  
-  // Set configuration times display
-  const infoMasuk = document.getElementById('info-jam-masuk');
-  const infoKeluar = document.getElementById('info-jam-keluar');
-  if (infoMasuk) infoMasuk.textContent = `${APP_CONFIG.jamMasukMulai}–${APP_CONFIG.jamMasukSelesai}`;
-  if (infoKeluar) infoKeluar.textContent = `${APP_CONFIG.jamKeluarMulai}–${APP_CONFIG.jamKeluarSelesai}`;
 }
 
 function openAbsenModal(mode) {
-  absenMode = mode;
+  state.absenMode = mode;
   const modal = document.getElementById('modal-absen');
-  const title = document.getElementById('modal-absen-title');
-  const textarea = document.getElementById('absen-keterangan');
   
-  title.textContent = mode === 'masuk' ? 'Absen Masuk' : 'Absen Keluar';
-  textarea.value = '';
+  // Update konfirmasi info
+  const now = new Date();
+  const jamStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  
+  document.getElementById('konfirmasi-tipe').textContent = state.tipeAbsenDipilih || 'WFO';
+  document.getElementById('konfirmasi-waktu').textContent = jamStr;
+  document.getElementById('konfirmasi-mode').textContent = mode === 'masuk' ? 'Absen Masuk' : 'Absen Keluar';
+  document.getElementById('modal-absen-title').textContent = mode === 'masuk' ? 'Konfirmasi Absen Masuk' : 'Konfirmasi Absen Keluar';
   
   modal.classList.remove('hidden');
   modal.classList.add('modal--show');
@@ -467,7 +560,7 @@ function closeAbsenModal() {
 
 async function submitAbsen() {
   const btn = document.getElementById('btn-submit-absen');
-  const keterangan = document.getElementById('absen-keterangan').value.trim();
+  const tipe = state.tipeAbsenDipilih || 'WFO';
   
   setLoading(btn, true);
   
@@ -475,28 +568,33 @@ async function submitAbsen() {
     const payload = {
       nip: state.karyawan.nip,
       nama: state.karyawan.nama,
-      keterangan: keterangan
+      tipe: tipe,
+      emailAtasan: state.karyawan.emailAtasan || ''
     };
     
-    if (absenMode === 'masuk') {
+    if (state.absenMode === 'masuk') {
       const result = await graphService.absenMasuk(payload);
-      showToast(`✓ Absen masuk berhasil! Status: ${result.status}`, 'success');
+      showToast(`✓ Absen masuk ${tipe} berhasil! Status: ${result.status}`, 'success');
     } else {
       const result = await graphService.absenKeluar(payload);
       showToast(`✓ Absen keluar berhasil! Jam: ${result.jamKeluar.substring(0, 5)}`, 'success');
     }
     
-    await loadAbsen();
     closeAbsenModal();
+    
+    // Refresh data absen
+    state.absensiHariIni = await graphService.getAbsensiHariIni(state.karyawan.nip);
+    renderAbsenDashboard();
+    
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
-    setLoading(btn, false, 'Absen Sekarang');
+    setLoading(btn, false, 'Konfirmasi & Absen');
   }
 }
 
 // ============================================================
-// TAB 3: REQUEST WFA (PENGAJUAN TANGGAL)
+// TAB 3: REQUEST WFA / VISIT
 // ============================================================
 function loadRequestView(offset = 0) {
   if (offset !== 0) {
@@ -513,7 +611,7 @@ function loadRequestView(offset = 0) {
   
   document.getElementById('picker-month-label').textContent = monthLabel;
   
-  // Tampilkan email supervisor
+  // Tampilkan email atasan
   const managerEmail = state.karyawan.emailAtasan || '';
   const managerEl = document.getElementById('req-manager-email');
   if (managerEl) {
@@ -526,6 +624,13 @@ function loadRequestView(offset = 0) {
     }
   }
   
+  // Set tipe request default
+  if (!state.tipeRequestDipilih) state.tipeRequestDipilih = 'WFA';
+  const radioWfa = document.getElementById('radio-req-wfa');
+  const radioVisit = document.getElementById('radio-req-visit');
+  if (state.tipeRequestDipilih === 'WFA' && radioWfa) radioWfa.checked = true;
+  if (state.tipeRequestDipilih === 'Visit' && radioVisit) radioVisit.checked = true;
+
   renderPickerGrid(month, year);
   renderSelectedDates();
 }
@@ -533,25 +638,21 @@ function loadRequestView(offset = 0) {
 function renderPickerGrid(month, year) {
   const container = document.getElementById('picker-days-container');
   const daysInMonth = new Date(year, month, 0).getDate();
-  
   const firstDayIndex = new Date(year, month - 1, 1).getDay();
-  // Senin ke Minggu index mapping
   const startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
   
   let cellsHtml = '';
   
-  // Sel kosong
   for (let i = 0; i < startOffset; i++) {
     cellsHtml += '<div class="picker-day-cell picker-day-cell--empty"></div>';
   }
   
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const todayStr = getTodayString();
   
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDayStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isSelected = state.selectedDates.includes(currentDayStr);
-    const isDisabled = currentDayStr < todayStr; // Disable tanggal lampau
+    const isDisabled = currentDayStr < todayStr;
     
     let cellClass = 'picker-day-cell';
     if (isSelected) cellClass += ' picker-day-cell--selected';
@@ -566,7 +667,6 @@ function renderPickerGrid(month, year) {
   
   container.innerHTML = cellsHtml;
   
-  // Click listener pada tanggal pemilih
   container.querySelectorAll('.picker-day-cell:not(.picker-day-cell--empty):not(.picker-day-cell--disabled)').forEach(el => {
     el.addEventListener('click', () => {
       const dateStr = el.dataset.date;
@@ -575,7 +675,7 @@ function renderPickerGrid(month, year) {
         state.selectedDates.splice(idx, 1);
       } else {
         state.selectedDates.push(dateStr);
-        state.selectedDates.sort(); // Urutkan secara kronologis
+        state.selectedDates.sort();
       }
       renderPickerGrid(month, year);
       renderSelectedDates();
@@ -600,7 +700,6 @@ function renderSelectedDates() {
     </span>
   `).join('');
   
-  // Event remove tag
   container.querySelectorAll('.selected-date-tag__remove').forEach(el => {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -623,21 +722,27 @@ function validateRequestForm() {
   const btnSubmit = document.getElementById('btn-submit-request');
   const catatan = document.getElementById('req-catatan').value.trim();
   const managerEmail = state.karyawan.emailAtasan || '';
+  const tipe = state.tipeRequestDipilih;
   
-  const isValid = state.selectedDates.length > 0 && catatan.length > 0 && managerEmail.length > 0;
+  const isValid = state.selectedDates.length > 0 && catatan.length > 0 && managerEmail.length > 0 && !!tipe;
   btnSubmit.disabled = !isValid;
 }
 
 async function submitWfaRequest() {
   const catatan = document.getElementById('req-catatan').value.trim();
   const managerEmail = state.karyawan.emailAtasan || '';
+  const tipe = state.tipeRequestDipilih;
   
   if (state.selectedDates.length === 0) {
     showToast('Pilih minimal satu tanggal pengajuan.', 'warning');
     return;
   }
   if (!catatan) {
-    showToast('Alasan pengajuan WFA wajib diisi.', 'warning');
+    showToast('Alasan pengajuan wajib diisi.', 'warning');
+    return;
+  }
+  if (!tipe) {
+    showToast('Pilih tipe pengajuan (WFA atau Visit).', 'warning');
     return;
   }
   if (!managerEmail) {
@@ -653,15 +758,16 @@ async function submitWfaRequest() {
       nip: state.karyawan.nip,
       nama: state.karyawan.nama,
       emailUser: state.user.mail || state.user.userPrincipalName,
-      tanggalWfa: state.selectedDates.join(', '), // Bentuk string terpisah koma
+      tanggalWfa: state.selectedDates.join(', '),
+      tipe: tipe,
       emailAtasan: managerEmail,
       catatanUser: catatan
     };
     
     await graphService.tambahPermohonanWfa(payload);
-    showToast('✓ Pengajuan WFA berhasil dikirim ke atasan!', 'success');
+    showToast(`✓ Pengajuan ${tipe} berhasil dikirim! Anda sekarang bisa absen setelah email terkirim.`, 'success');
     
-    // Reset Form
+    // Reset form
     state.selectedDates = [];
     document.getElementById('req-catatan').value = '';
     
@@ -670,19 +776,26 @@ async function submitWfaRequest() {
     renderPickerGrid(month, year);
     renderSelectedDates();
     
-    // Redirect ke kalender utama (Tab 1)
-    showView('calendar');
-    await loadCalendar();
+    // Langsung arahkan ke tab absen, dan refresh status absen secara real-time
+    showView('absen');
+    await loadAbsen();
+    
+    // Auto-pilih tipe yang baru disubmit supaya user bisa langsung absen
+    const radioEl = document.getElementById(tipe === 'WFA' ? 'radio-wfa' : 'radio-visit');
+    if (radioEl) {
+      radioEl.checked = true;
+      await onTipeAbsenChange(tipe);
+    }
     
   } catch (err) {
     showToast('Gagal memproses pengajuan: ' + err.message, 'error');
   } finally {
-    setLoading(btn, false, 'Kirim Pengajuan WFA');
+    setLoading(btn, false, 'Kirim Pengajuan');
   }
 }
 
 // ============================================================
-// VIEW PERSATUAN / APPROVAL ATASAN (URL PARSING FLOW)
+// VIEW APPROVAL ATASAN (URL ROUTING)
 // ============================================================
 async function loadApprovalRequest(requestId, action) {
   showView('approval');
@@ -695,59 +808,43 @@ async function loadApprovalRequest(requestId, action) {
   
   try {
     const req = await graphService.getPermohonanWfaById(requestId);
-    if (!req) {
-      throw new Error('Pengajuan WFA tidak ditemukan.');
-    }
+    if (!req) throw new Error('Pengajuan tidak ditemukan.');
     
     state.currentApprovalRequest = req;
     
-    // Tulis rincian pengajuan ke layar
     document.getElementById('app-nama').textContent = req.nama;
     document.getElementById('app-nip').textContent = req.nip;
     document.getElementById('app-catatan-karyawan').textContent = req.catatanUser || '-';
     
-    // Susun daftar tanggal terpilih
+    // Badge tipe
+    const tipeEl = document.getElementById('app-tipe');
+    const tipe = req.tipe || 'WFA';
+    tipeEl.textContent = tipe;
+    tipeEl.className = `status-badge tipe-badge tipe-badge--${tipe.toLowerCase()}`;
+    
     const datesEl = document.getElementById('app-tanggal-list');
     const dates = req.tanggalWfa ? req.tanggalWfa.split(',') : [];
     datesEl.innerHTML = dates.map(d => `<span class="selected-date-tag">${formatTanggalPendek(d.trim())}</span>`).join('');
     
-    const labelAtasan = document.getElementById('app-label-atasan');
     const btnConfirm = document.getElementById('btn-confirm-approval');
     const textarea = document.getElementById('app-catatan-atasan');
     
-    const isActionReject = action === 'reject';
-    
     if (req.status === 'Rejected') {
-      // Jika statusnya sudah ditolak / dibatalkan sebelumnya
-      titleText.textContent = 'Pengajuan WFA: DIBATALKAN';
-      labelAtasan.textContent = 'Catatan Penolakan Atasan (Sudah Diproses)';
+      titleText.textContent = `Pengajuan ${tipe}: DIBATALKAN`;
       textarea.value = req.catatanAtasan || '';
       textarea.disabled = true;
       btnConfirm.disabled = true;
       btnConfirm.textContent = 'Sudah Ditolak / Dibatalkan';
       btnConfirm.classList.add('btn--disabled');
-      btnConfirm.style.backgroundColor = '';
-    } else if (req.status === 'Approved' && !isActionReject) {
-      // Jika sudah disetujui dan aksinya bukan penolakan
-      titleText.textContent = 'Pengajuan WFA: DISETUJUI';
-      labelAtasan.textContent = 'Catatan Persetujuan Atasan (Sudah Diproses)';
-      textarea.value = req.catatanAtasan || '';
-      textarea.disabled = true;
-      btnConfirm.disabled = true;
-      btnConfirm.textContent = 'Sudah Disetujui';
-      btnConfirm.classList.add('btn--disabled');
-      btnConfirm.style.backgroundColor = '';
     } else {
-      // Belum diproses (Pending) ATAU sudah disetujui (Approved) tapi atasan ingin menolak (isActionReject)
-      titleText.textContent = isActionReject ? 'Batalkan Pengajuan WFA' : 'Setujui Pengajuan WFA';
-      labelAtasan.textContent = isActionReject ? 'Catatan / Alasan Pembatalan (Opsional)' : 'Catatan / Alasan Persetujuan (Opsional)';
+      // Approved (auto) — atasan hanya bisa reject/batalkan
+      titleText.textContent = `Batalkan Pengajuan ${tipe}`;
       textarea.value = '';
-      textarea.placeholder = isActionReject ? 'Contoh: Ada rapat luring penting di kantor...' : 'Contoh: Disetujui, harap standby di Teams...';
+      textarea.placeholder = 'Contoh: Ada rapat luring penting di kantor...';
       textarea.disabled = false;
       btnConfirm.disabled = false;
-      btnConfirm.textContent = isActionReject ? 'Konfirmasi Batalkan WFA (Reject)' : 'Konfirmasi Setujui WFA (Approve)';
+      btnConfirm.textContent = 'Konfirmasi Batalkan / Tolak Pengajuan';
       btnConfirm.classList.remove('btn--disabled');
-      btnConfirm.style.backgroundColor = isActionReject ? 'var(--red)' : 'var(--green)';
     }
     
     loadingState.classList.add('hidden');
@@ -755,8 +852,7 @@ async function loadApprovalRequest(requestId, action) {
     
   } catch (err) {
     loadingState.classList.add('hidden');
-    showToast('Gagal memuat detail pengajuan WFA: ' + err.message, 'error');
-    // Jika gagal, redirect ke Kalender utama
+    showToast('Gagal memuat detail pengajuan: ' + err.message, 'error');
     showView('calendar');
     await loadCalendar();
   }
@@ -766,45 +862,36 @@ async function confirmApproval() {
   const req = state.currentApprovalRequest;
   if (!req) return;
   
-  const params = new URLSearchParams(window.location.search);
-  const action = params.get('action');
-  const status = action === 'approve' ? 'Approved' : 'Rejected';
   const catatanAtasan = document.getElementById('app-catatan-atasan').value.trim();
-  
   const btn = document.getElementById('btn-confirm-approval');
   setLoading(btn, true);
   
   try {
-    await graphService.updateStatusPermohonanWfa(req.id, status, catatanAtasan);
-    showToast(`✓ Pengajuan WFA berhasil ${status === 'Approved' ? 'disetujui' : 'ditolak/dibatalkan'}!`, 'success');
+    // Satu-satunya aksi dari email adalah reject
+    await graphService.updateStatusPermohonanWfa(req.id, 'Rejected', catatanAtasan);
+    showToast('✓ Pengajuan berhasil dibatalkan/ditolak!', 'success');
     
-    // Hapus parameter URL agar tidak terpanggil ulang saat reload
     window.history.replaceState({}, document.title, window.location.pathname);
-    
-    // Redirect ke Kalender
     showView('calendar');
     await loadCalendar();
   } catch (err) {
-    showToast('Gagal memproses persetujuan: ' + err.message, 'error');
+    showToast('Gagal memproses: ' + err.message, 'error');
   } finally {
-    setLoading(btn, false, 'Konfirmasi');
+    setLoading(btn, false, 'Konfirmasi Batalkan / Tolak Pengajuan');
   }
 }
 
 function cancelApproval() {
-  // Clear URL query parameters
   window.history.replaceState({}, document.title, window.location.pathname);
-  
-  // Buka kalender
   showView('calendar');
   loadCalendar();
 }
 
 // ============================================================
-// BIND EVENTS & EVENT LISTENERS
+// BIND EVENTS
 // ============================================================
 function bindEvents() {
-  // Microsoft Login Button
+  // Login
   document.getElementById('btn-login')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-login');
     setLoading(btn, true);
@@ -817,68 +904,97 @@ function bindEvents() {
     }
   });
 
-  // Logout Button
+  // Logout
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     await authService.logout();
     window.location.reload();
   });
 
-  // Navigasi Bottom Nav (3 Tab utama)
+  // Bottom Nav
   document.querySelectorAll('[data-nav]').forEach(el => {
     el.addEventListener('click', async () => {
       const view = el.dataset.nav;
       showView(view);
-      
       if (view === 'calendar') await loadCalendar();
       if (view === 'absen') await loadAbsen();
       if (view === 'request') loadRequestView();
     });
   });
 
-  // Calendar Bulan Navigasi (Tab 1)
+  // Calendar navigasi
   document.getElementById('btn-cal-prev')?.addEventListener('click', () => loadCalendar(-1));
   document.getElementById('btn-cal-next')?.addEventListener('click', () => loadCalendar(1));
 
-  // Request Picker Bulan Navigasi (Tab 3)
+  // Request picker navigasi
   document.getElementById('btn-picker-prev')?.addEventListener('click', () => loadRequestView(-1));
   document.getElementById('btn-picker-next')?.addEventListener('click', () => loadRequestView(1));
 
-  // Input catatan alasan request
+  // Radio tipe absen (Tab 2)
+  document.querySelectorAll('input[name="tipe-absen"]').forEach(radio => {
+    radio.addEventListener('change', async (e) => {
+      await onTipeAbsenChange(e.target.value);
+    });
+  });
+
+  // Radio tipe request (Tab 3)
+  document.querySelectorAll('input[name="tipe-request"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      state.tipeRequestDipilih = e.target.value;
+      validateRequestForm();
+    });
+  });
+
+  // Input catatan request
   document.getElementById('req-catatan')?.addEventListener('input', validateRequestForm);
 
-  // Submit pengajuan WFA (Tab 3)
+  // Submit request
   document.getElementById('btn-submit-request')?.addEventListener('click', submitWfaRequest);
 
-  // Absen Masuk & Keluar Buttons (Tab 2)
+  // Tombol absen masuk/keluar
   document.getElementById('btn-absen-masuk')?.addEventListener('click', () => openAbsenModal('masuk'));
   document.getElementById('btn-absen-keluar')?.addEventListener('click', () => openAbsenModal('keluar'));
   document.getElementById('btn-close-modal')?.addEventListener('click', closeAbsenModal);
   document.getElementById('btn-submit-absen')?.addEventListener('click', submitAbsen);
 
-  // Approval atasan button events
-  document.getElementById('btn-confirm-approval')?.addEventListener('click', confirmApproval);
-  document.getElementById('btn-cancel-approval')?.addEventListener('click', cancelApproval);
-
-  // Backdrop modal absen click to close
+  // Modal backdrop absen
   document.getElementById('modal-absen')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeAbsenModal();
   });
 
-  // Click on calendar day cell to open detail popup
+  // Modal belum request
+  document.getElementById('btn-belum-request-tutup')?.addEventListener('click', closeBelumRequestModal);
+  document.getElementById('btn-belum-request-ke-request')?.addEventListener('click', () => {
+    closeBelumRequestModal();
+    showView('request');
+    loadRequestView();
+    // Set tipe request sesuai tipe yang dipilih di tab absen
+    if (state.tipeAbsenDipilih && state.tipeAbsenDipilih !== 'WFO') {
+      state.tipeRequestDipilih = state.tipeAbsenDipilih;
+      const radioEl = document.getElementById(
+        state.tipeAbsenDipilih === 'WFA' ? 'radio-req-wfa' : 'radio-req-visit'
+      );
+      if (radioEl) radioEl.checked = true;
+    }
+  });
+  document.getElementById('modal-belum-request')?.addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeBelumRequestModal();
+  });
+
+  // Calendar detail modal
   document.getElementById('calendar-days-container')?.addEventListener('click', (e) => {
     const cell = e.target.closest('.calendar-day-cell');
     if (cell && cell.dataset.date) {
       openCalendarDetailModal(cell.dataset.date);
     }
   });
-
-  // Calendar Detail Modal close button
   document.getElementById('btn-close-calendar-modal')?.addEventListener('click', closeCalendarDetailModal);
-
-  // Backdrop modal detail calendar click to close
   document.getElementById('modal-calendar-detail')?.addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeCalendarDetailModal();
   });
+
+  // Approval
+  document.getElementById('btn-confirm-approval')?.addEventListener('click', confirmApproval);
+  document.getElementById('btn-cancel-approval')?.addEventListener('click', cancelApproval);
 }
 
 // ============================================================

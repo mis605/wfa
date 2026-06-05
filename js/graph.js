@@ -26,7 +26,6 @@ class GraphService {
       'Content-Type': 'application/json',
     };
 
-    console.log('[GraphService] Sending fetch request...');
     let response;
     try {
       response = await fetch(url, {
@@ -54,24 +53,21 @@ class GraphService {
     return response.json();
   }
 
-  // Base URL untuk SharePoint Site
   getSharePointBase() {
     return `${GRAPH_BASE}/sites/${APP_CONFIG.sharepointSiteId}`;
   }
 
-  // Ambil semua item dari SharePoint List
   async getListItems(listId) {
     console.log('[GraphService] getListItems started for list:', listId);
     const url = `${this.getSharePointBase()}/lists/${listId}/items?expand=fields`;
     const data = await this.apiFetch(url);
-    console.log('[GraphService] getListItems data retrieved successfully, count:', data?.value?.length);
+    console.log('[GraphService] getListItems count:', data?.value?.length);
     return data?.value?.map(item => ({
-      listItemId: item.id, // ID internal SharePoint item
+      listItemId: item.id,
       ...item.fields
     })) || [];
   }
 
-  // Tambah item ke SharePoint List
   async addListItem(listId, fields) {
     const url = `${this.getSharePointBase()}/lists/${listId}/items`;
     const body = { fields };
@@ -85,7 +81,6 @@ class GraphService {
     };
   }
 
-  // Update item di SharePoint List berdasarkan ID internal
   async updateListItem(listId, listItemId, fields) {
     const url = `${this.getSharePointBase()}/lists/${listId}/items/${listItemId}/fields`;
     return this.apiFetch(url, {
@@ -111,13 +106,20 @@ class GraphService {
     }
   }
 
-  // Helper: Timestamp Lokal (WIB) YYYY-MM-DD HH:mm:ss
+  // Helper: tanggal lokal WIB (bukan UTC)
+  getTodayLocal() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   getLocalTimestamp() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
   }
 
-  // Helper: Cek apakah waktu sekarang dalam rentang yang diizinkan
   isWithinTimeRange(startHHMM, endHHMM) {
     const now = new Date();
     const menitSekarang = now.getHours() * 60 + now.getMinutes();
@@ -150,6 +152,11 @@ class GraphService {
     return items.find(k => String(k.email).toLowerCase() === email.toLowerCase()) || null;
   }
 
+  async getKaryawanByNip(nip) {
+    const items = await this.getAllKaryawan();
+    return items.find(k => String(k.nip) === String(nip)) || null;
+  }
+
   async tambahKaryawan(data) {
     const fields = {
       Title: data.nip,
@@ -166,48 +173,45 @@ class GraphService {
 
   async updateKaryawan(id, data) {
     const fields = {};
-    if (data.nip !== undefined) {
-      fields.Title = data.nip;
-    }
+    if (data.nip !== undefined) fields.Title = data.nip;
     if (data.nama !== undefined) fields.Nama = data.nama;
     if (data.email !== undefined) fields.Email = data.email;
     if (data.departemen !== undefined) fields.Departemen = data.departemen;
     if (data.jabatan !== undefined) fields.Jabatan = data.jabatan;
-    if (data.statusAktif !== undefined) {
-      fields.Status_Aktif = data.statusAktif;
-    }
-    if (data.emailAtasan !== undefined) {
-      fields.Email_Atasan = data.emailAtasan;
-    }
-    
+    if (data.statusAktif !== undefined) fields.Status_Aktif = data.statusAktif;
+    if (data.emailAtasan !== undefined) fields.Email_Atasan = data.emailAtasan;
     await this.updateListItem(APP_CONFIG.listKaryawanId, id, fields);
   }
 
   // ============================================================
   // OPERASI ABSENSI
+  // Kolom baru: Tipe (WFO / WFA / Visit), Email_Atasan
   // ============================================================
 
+  _mapAbsensiItem(item) {
+    return {
+      id: item.listItemId,
+      nip: item.NIP || item.Nip || item.NRK || item.Title || '',
+      nama: item.Nama || '',
+      tanggal: item.Tanggal || '',
+      jamMasuk: item.Jam_Masuk || item.JamMasuk || '',
+      jamKeluar: item.Jam_Keluar || item.JamKeluar || '',
+      status: item.Status || '',
+      tipe: item.Tipe || 'WFO',
+      emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
+      keterangan: item.Keterangan || ''
+    };
+  }
+
   async getAbsensiHariIni(nip) {
-    const d = new Date();
-    const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    
+    const today = this.getTodayLocal();
     const items = await this.getListItems(APP_CONFIG.listAbsensiId);
     const found = items.find(item => {
       const itemNip = item.NIP || item.Nip || item.NRK || item.Title;
       return String(itemNip) === String(nip) && item.Tanggal === today;
     });
     if (!found) return null;
-    
-    return {
-      id: found.listItemId,
-      nip: found.NIP || found.Nip || found.NRK || found.Title || '',
-      nama: found.Nama,
-      tanggal: found.Tanggal,
-      jamMasuk: found.Jam_Masuk || found.JamMasuk,
-      jamKeluar: found.Jam_Keluar || found.JamKeluar,
-      status: found.Status,
-      keterangan: found.Keterangan
-    };
+    return this._mapAbsensiItem(found);
   }
 
   async getAbsensiBulanIni(nip) {
@@ -216,44 +220,26 @@ class GraphService {
   }
 
   async getAbsensiBulanTertentu(nip, bulan, tahun) {
-    const bulanIni = `${tahun}-${String(bulan).padStart(2,'0')}`;
+    const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;
     const items = await this.getListItems(APP_CONFIG.listAbsensiId);
     return items
       .filter(item => {
         const itemNip = item.NIP || item.Nip || item.NRK || item.Title;
-        return String(itemNip) === String(nip) && String(item.Tanggal).startsWith(bulanIni);
+        return String(itemNip) === String(nip) && String(item.Tanggal).startsWith(prefix);
       })
-      .map(item => ({
-        id: item.listItemId,
-        nip: item.NIP || item.Nip || item.NRK || item.Title || '',
-        nama: item.Nama,
-        tanggal: item.Tanggal,
-        jamMasuk: item.Jam_Masuk || item.JamMasuk,
-        jamKeluar: item.Jam_Keluar || item.JamKeluar,
-        status: item.Status,
-        keterangan: item.Keterangan
-      }));
+      .map(item => this._mapAbsensiItem(item));
   }
 
-  async getRekapAbsensi(bulan, tahun) {
+  // Ambil SEMUA absensi bulan tertentu (untuk kalender — semua karyawan)
+  async getAbsensiBulanTertentu_All(bulan, tahun) {
     const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;
     const items = await this.getListItems(APP_CONFIG.listAbsensiId);
     return items
-      .filter(item => String(item.Tanggal).startsWith(prefix))
-      .map(item => ({
-        id: item.listItemId,
-        nip: item.NIP || item.Nip || item.NRK || item.Title || '',
-        nama: item.Nama,
-        tanggal: item.Tanggal,
-        jamMasuk: item.Jam_Masuk || item.JamMasuk,
-        jamKeluar: item.Jam_Keluar || item.JamKeluar,
-        status: item.Status,
-        keterangan: item.Keterangan
-      }));
+      .filter(item => String(item.Tanggal || '').startsWith(prefix))
+      .map(item => this._mapAbsensiItem(item));
   }
 
   async absenMasuk(data) {
-    // Validasi jam absen masuk
     if (!this.isWithinTimeRange(APP_CONFIG.jamMasukMulai, APP_CONFIG.jamMasukSelesai)) {
       const [sh, sm] = APP_CONFIG.jamMasukMulai.split(':');
       const [eh, em] = APP_CONFIG.jamMasukSelesai.split(':');
@@ -264,7 +250,7 @@ class GraphService {
     if (existing) throw new Error('Anda sudah melakukan absen masuk hari ini.');
     
     const now = new Date();
-    const tanggal = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const tanggal = this.getTodayLocal();
     const jamMasuk = now.toTimeString().substring(0, 8);
     const status = this.hitungStatus(jamMasuk);
     
@@ -275,11 +261,13 @@ class GraphService {
       Jam_Masuk: jamMasuk,
       Jam_Keluar: '',
       Status: status,
+      Tipe: data.tipe || 'WFO',
+      Email_Atasan: data.emailAtasan || '',
       Keterangan: data.keterangan || ''
     };
     
     const res = await this.addListItem(APP_CONFIG.listAbsensiId, fields);
-    return { id: res.listItemId, status, jamMasuk };
+    return { id: res.listItemId, status, jamMasuk, tipe: data.tipe };
   }
 
   async absenKeluar(data) {
@@ -317,47 +305,44 @@ class GraphService {
   }
 
   // ============================================================
-  // OPERASI PERMOHONAN WFA
+  // OPERASI PERMOHONAN WFA / VISIT
+  // Kolom baru: Tipe (WFA / Visit)
   // ============================================================
+
+  _mapPermohonanItem(item) {
+    return {
+      id: item.listItemId,
+      nip: item.NIP || item.Nip || item.NRK || item.Title || '',
+      nama: item.Nama || '',
+      emailUser: item.Email_User || item.EmailUser || item.Email || '',
+      tanggalWfa: item.Tanggal_WFA || item.TanggalWfa || item.Tanggal || '',
+      tipe: item.Tipe || 'WFA',
+      status: item.Status || 'Pending',
+      emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
+      catatanUser: item.Catatan_User || item.CatatanUser || item.Catatan || '',
+      catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || ''
+    };
+  }
 
   async getPermohonanWfa(email) {
     const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
     return items
       .filter(item => {
-        const itemEmailUser = item.Email_User || item.EmailUser || item.Email || '';
-        return String(itemEmailUser).toLowerCase() === email.toLowerCase();
+        const itemEmail = item.Email_User || item.EmailUser || item.Email || '';
+        return String(itemEmail).toLowerCase() === email.toLowerCase();
       })
-      .map(item => ({
-        id: item.listItemId,
-        nip: item.NIP || item.Nip || item.NRK || item.Title || '',
-        nama: item.Nama || '',
-        emailUser: item.Email_User || item.EmailUser || item.Email || '',
-        tanggalWfa: item.Tanggal_WFA || item.TanggalWfa || item.Tanggal || '',
-        status: item.Status || 'Pending',
-        emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
-        catatanUser: item.Catatan_User || item.CatatanUser || item.Catatan || '',
-        catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || ''
-      }));
+      .map(item => this._mapPermohonanItem(item));
   }
 
   async getPermohonanWfaById(id) {
     const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
     const found = items.find(item => String(item.listItemId) === String(id));
     if (!found) return null;
-    return {
-      id: found.listItemId,
-      nip: found.NIP || found.Nip || found.NRK || found.Title || '',
-      nama: found.Nama || '',
-      emailUser: found.Email_User || found.EmailUser || found.Email || '',
-      tanggalWfa: found.Tanggal_WFA || found.TanggalWfa || found.Tanggal || '',
-      status: found.Status || 'Pending',
-      emailAtasan: found.Email_Atasan || found.EmailAtasan || '',
-      catatanUser: found.Catatan_User || found.CatatanUser || found.Catatan || '',
-      catatanAtasan: found.Catatan_Atasan || found.CatatanAtasan || ''
-    };
+    return this._mapPermohonanItem(found);
   }
 
-  async getApprovedWfaByBulan(bulan, tahun) {
+  // Ambil semua request approved (WFA + Visit) untuk bulan tertentu — untuk kalender
+  async getApprovedRequestByBulan(bulan, tahun) {
     const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
     const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;
     
@@ -373,6 +358,7 @@ class GraphService {
             nip: req.NIP || req.Nip || req.NRK || req.Title || '',
             nama: req.Nama || '',
             tanggal: d,
+            tipe: req.Tipe || 'WFA',
             emailAtasan: (req.Email_Atasan || req.EmailAtasan || '').toLowerCase().trim()
           });
         }
@@ -382,13 +368,19 @@ class GraphService {
     return result;
   }
 
+  // (Backward compat) alias untuk getApprovedRequestByBulan
+  async getApprovedWfaByBulan(bulan, tahun) {
+    return this.getApprovedRequestByBulan(bulan, tahun);
+  }
+
   async tambahPermohonanWfa(data) {
     const fields = {
       Title: data.nip,
       Nama: data.nama,
       Email_User: data.emailUser,
-      Tanggal_WFA: data.tanggalWfa, // String terpisah koma
-      Status: 'Approved',
+      Tanggal_WFA: data.tanggalWfa,
+      Tipe: data.tipe || 'WFA',
+      Status: 'Approved',  // Auto approve
       Email_Atasan: data.emailAtasan,
       Catatan_User: data.catatanUser || '',
       Catatan_Atasan: ''
@@ -396,14 +388,14 @@ class GraphService {
     
     const res = await this.addListItem(APP_CONFIG.listPermohonanWfaId, fields);
     
-    // Kirim email persetujuan ke atasan
+    // Kirim email notifikasi ke atasan
     try {
       await this.sendApprovalEmail({
         listItemId: res.listItemId,
         ...fields
       });
     } catch (e) {
-      console.error("Gagal mengirim email persetujuan ke atasan:", e);
+      console.error('Gagal mengirim email notifikasi ke atasan:', e);
     }
 
     return res.listItemId;
@@ -416,13 +408,13 @@ class GraphService {
     };
     await this.updateListItem(APP_CONFIG.listPermohonanWfaId, id, fields);
     
-    // Kirim email balasan ke user pemohon
+    // Kirim email balasan ke user
     const req = await this.getPermohonanWfaById(id);
     if (req) {
       try {
         await this.sendResponseEmail(req, status, catatanAtasan);
       } catch (e) {
-        console.error("Gagal mengirim email balasan ke pemohon:", e);
+        console.error('Gagal mengirim email balasan ke pemohon:', e);
       }
     }
   }
@@ -443,18 +435,24 @@ class GraphService {
   }
 
   async sendApprovalEmail(req) {
+    const tipe = req.Tipe || 'WFA';
     const formattedDates = req.Tanggal_WFA.split(',').map(d => `• ${d.trim()}`).join('<br>');
     const rejectUrl = `${APP_CONFIG.redirectUri}?action=reject&id=${req.listItemId}`;
 
+    const tipeColor = tipe === 'WFA' ? '#4299e1' : '#ed8936';
+    const tipeLabel = tipe === 'Visit' ? 'Visit / Kunjungan Lapangan' : 'Work From Anywhere (WFA)';
+
     const mailContent = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-        <h2 style="color: #2b6cb0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Pemberitahuan Work From Anywhere (WFA)</h2>
+        <div style="background: ${tipeColor}; color: white; padding: 12px 20px; border-radius: 6px 6px 0 0; margin: -20px -20px 20px -20px;">
+          <h2 style="margin: 0; font-size: 1.1rem;">Pemberitahuan ${tipeLabel}</h2>
+        </div>
         <p>Halo,</p>
-        <p>Karyawan berikut telah mengajukan permohonan WFA dan statusnya telah <strong>disetujui secara otomatis oleh sistem</strong>:</p>
+        <p>Karyawan berikut telah mengajukan permohonan <strong>${tipe}</strong> dan statusnya telah <strong>disetujui secara otomatis oleh sistem</strong>:</p>
         
         <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
           <tr style="background-color: #f7fafc;">
-            <td style="padding: 10px; font-weight: bold; width: 150px;">Nama Karyawan</td>
+            <td style="padding: 10px; font-weight: bold; width: 160px;">Nama Karyawan</td>
             <td style="padding: 10px;">${req.Nama}</td>
           </tr>
           <tr>
@@ -462,66 +460,54 @@ class GraphService {
             <td style="padding: 10px;">${req.NRK || req.NIP || req.Title || ''}</td>
           </tr>
           <tr style="background-color: #f7fafc;">
-            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal WFA</td>
-            <td style="padding: 10px; color: #2d3748;">${formattedDates}</td>
+            <td style="padding: 10px; font-weight: bold;">Tipe</td>
+            <td style="padding: 10px;">
+              <span style="background: ${tipeColor}; color: white; padding: 2px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold;">${tipe}</span>
+            </td>
           </tr>
           <tr>
-            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Catatan/Alasan</td>
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal</td>
+            <td style="padding: 10px; color: #2d3748;">${formattedDates}</td>
+          </tr>
+          <tr style="background-color: #f7fafc;">
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Alasan</td>
             <td style="padding: 10px; color: #718096; font-style: italic;">"${req.Catatan_User || '-'}"</td>
           </tr>
         </table>
 
         <p style="margin-top: 30px; font-weight: 500; color: #2d3748;">
-          Jika Anda menyetujui pengajuan ini, Anda <strong>tidak perlu melakukan tindakan apa pun</strong>. 
-          Namun, jika Anda ingin <strong>membatalkan / menolak</strong> pengajuan WFA ini, silakan klik tombol di bawah ini:
+          Jika Anda menyetujui pengajuan ini, <strong>tidak perlu melakukan tindakan apapun</strong>.
+          Namun, jika Anda ingin <strong>membatalkan / menolak</strong> pengajuan ini, klik tombol di bawah:
         </p>
         <div style="margin: 20px 0;">
           <a href="${rejectUrl}" style="display: inline-block; background-color: #f56565; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem;">Batalkan / Tolak Pengajuan</a>
         </div>
 
         <p style="font-size: 0.85rem; color: #a0aec0; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-          Catatan: Tombol di atas akan membuka web aplikasi Absensi WFA CO untuk membatalkan pengajuan. Anda perlu masuk menggunakan akun Microsoft 365 Anda.
+          Catatan: Tombol di atas akan membuka web aplikasi Absensi untuk membatalkan pengajuan. Anda perlu masuk menggunakan akun Microsoft 365.
         </p>
       </div>
     `;
 
     const userEmail = req.Email_User || req.EmailUser || req.Email || '';
     const toAddress = (req.Email_Atasan || '').toLowerCase().trim();
-    const rawCcList = [
-      APP_CONFIG.emailHrd,
-      APP_CONFIG.emailMis,
-      userEmail
-    ];
+    const rawCcList = [APP_CONFIG.emailHrd, APP_CONFIG.emailMis, userEmail];
 
     const ccEmails = new Set();
     const ccRecipients = [];
-
     for (const rawCc of rawCcList) {
       if (!rawCc) continue;
       const cleanCc = rawCc.toLowerCase().trim();
       if (cleanCc && cleanCc !== toAddress && !ccEmails.has(cleanCc)) {
         ccEmails.add(cleanCc);
-        ccRecipients.push({
-          emailAddress: {
-            address: cleanCc
-          }
-        });
+        ccRecipients.push({ emailAddress: { address: cleanCc } });
       }
     }
 
     const message = {
-      subject: `[WFA Notification] Pengajuan WFA - ${req.Nama} (Disetujui Otomatis)`,
-      body: {
-        contentType: 'HTML',
-        content: mailContent
-      },
-      toRecipients: [
-        {
-          emailAddress: {
-            address: req.Email_Atasan
-          }
-        }
-      ]
+      subject: `[${tipe} Notification] Pengajuan ${tipe} - ${req.Nama} (Disetujui Otomatis)`,
+      body: { contentType: 'HTML', content: mailContent },
+      toRecipients: [{ emailAddress: { address: req.Email_Atasan } }]
     };
 
     if (ccRecipients.length > 0) {
@@ -533,15 +519,16 @@ class GraphService {
 
   async sendResponseEmail(req, status, catatanAtasan) {
     const isApproved = status === 'Approved';
-    const statusLabel = isApproved ? 'DISETUJUI' : 'DITOLAK';
+    const statusLabel = isApproved ? 'DISETUJUI' : 'DIBATALKAN / DITOLAK';
     const color = isApproved ? '#48bb78' : '#f56565';
+    const tipe = req.tipe || 'WFA';
     const formattedDates = req.tanggalWfa.split(',').map(d => `• ${d.trim()}`).join('<br>');
 
     const mailContent = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-        <h2 style="color: ${color}; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Status Pengajuan WFA - ${statusLabel}</h2>
+        <h2 style="color: ${color}; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">Status Pengajuan ${tipe} - ${statusLabel}</h2>
         <p>Halo ${req.nama},</p>
-        <p>Pengajuan WFA Anda telah ditinjau oleh atasan dengan status hasil berikut:</p>
+        <p>Pengajuan <strong>${tipe}</strong> Anda telah ditinjau oleh atasan dengan hasil berikut:</p>
         
         <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
           <tr style="background-color: #f7fafc;">
@@ -549,60 +536,48 @@ class GraphService {
             <td style="padding: 10px; color: ${color}; font-weight: bold;">${statusLabel}</td>
           </tr>
           <tr>
-            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal Diajukan</td>
-            <td style="padding: 10px; color: #2d3748;">${formattedDates}</td>
+            <td style="padding: 10px; font-weight: bold;">Tipe</td>
+            <td style="padding: 10px;">${tipe}</td>
           </tr>
           <tr style="background-color: #f7fafc;">
+            <td style="padding: 10px; font-weight: bold; vertical-align: top;">Tanggal</td>
+            <td style="padding: 10px; color: #2d3748;">${formattedDates}</td>
+          </tr>
+          <tr>
             <td style="padding: 10px; font-weight: bold; vertical-align: top;">Catatan Atasan</td>
             <td style="padding: 10px; color: #2d3748;">${catatanAtasan || '-'}</td>
           </tr>
         </table>
 
         <p style="margin-top: 30px;">
-          ${isApproved ? 'Silakan melakukan absensi masuk/pulang di webapp pada tanggal yang disetujui tersebut.' : 'Silakan hubungi atasan Anda jika ada pertanyaan lebih lanjut.'}
+          ${isApproved
+            ? `Silakan melakukan absensi masuk/pulang di webapp pada tanggal yang disetujui.`
+            : `Pengajuan ${tipe} Anda telah dibatalkan/ditolak oleh atasan. Silakan hubungi atasan Anda jika ada pertanyaan.`}
         </p>
         
         <p style="font-size: 0.85rem; color: #a0aec0; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-          Email ini dikirim secara otomatis oleh Sistem Absensi WFA CO PT. GOS INDORAYA.
+          Email ini dikirim secara otomatis oleh Sistem Absensi ${APP_CONFIG.namaPerusahaan}.
         </p>
       </div>
     `;
 
     const toAddress = (req.emailUser || '').toLowerCase().trim();
-    const rawCcList = [
-      APP_CONFIG.emailHrd,
-      APP_CONFIG.emailMis
-    ];
-
+    const rawCcList = [APP_CONFIG.emailHrd, APP_CONFIG.emailMis];
     const ccEmails = new Set();
     const ccRecipients = [];
-
     for (const rawCc of rawCcList) {
       if (!rawCc) continue;
       const cleanCc = rawCc.toLowerCase().trim();
       if (cleanCc && cleanCc !== toAddress && !ccEmails.has(cleanCc)) {
         ccEmails.add(cleanCc);
-        ccRecipients.push({
-          emailAddress: {
-            address: cleanCc
-          }
-        });
+        ccRecipients.push({ emailAddress: { address: cleanCc } });
       }
     }
 
     const message = {
-      subject: `[WFA Status] Pengajuan WFA Anda telah ${statusLabel}`,
-      body: {
-        contentType: 'HTML',
-        content: mailContent
-      },
-      toRecipients: [
-        {
-          emailAddress: {
-            address: req.emailUser
-          }
-        }
-      ]
+      subject: `[${tipe} Status] Pengajuan ${tipe} Anda telah ${statusLabel}`,
+      body: { contentType: 'HTML', content: mailContent },
+      toRecipients: [{ emailAddress: { address: req.emailUser } }]
     };
 
     if (ccRecipients.length > 0) {
