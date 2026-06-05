@@ -1456,3 +1456,114 @@ body {
     padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 20px);
   }
 }
+
+/* ============================================================
+   NO.8 — TOMBOL HARI INI
+   ============================================================ */
+.btn-sm--accent {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.btn-sm--accent:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   NO.9 — PROGRESS BAR ABSEN
+   ============================================================ */
+.absen-progress-wrap {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 100px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.absen-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  border-radius: 100px;
+  transition: width 0.12s ease;
+}
+
+/* ============================================================
+   NO.7 — REJECTED NOTIF ITEMS
+   ============================================================ */
+.rejected-notif-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid rgba(240, 82, 82, 0.25);
+  border-radius: var(--radius);
+}
+
+.rejected-notif-tanggal {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rejected-notif-catatan {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* ============================================================
+   NO.12 — FATAL ERROR VIEW
+   ============================================================ */
+.fatal-error-view {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg-base);
+}
+
+.fatal-error-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(240, 82, 82, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 32px 24px;
+  text-align: center;
+  max-width: 360px;
+  width: 100%;
+}
+
+.fatal-error-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.fatal-error-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--red);
+}
+
+.fatal-error-msg {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ============================================================
+   CALENDAR ERROR STATE
+   ============================================================ */
+.calendar-error-state {
+  grid-column: span 7;
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--yellow);
+  font-size: 0.88rem;
+}
