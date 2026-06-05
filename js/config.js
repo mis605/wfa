@@ -37,6 +37,13 @@ const APP_CONFIG = {
   // --- EMAIL NOTIFICATION CONFIG ---
   emailHrd: "hc.info@gos.co.id",
   emailMis: "mis@gos.co.id",
+
+  // --- KALENDER SUPERUSER ---
+  // Akun yang bisa melihat SEMUA karyawan di Tab Kalender
+  // Tambah email lain jika perlu (HRD, direktur, dll)
+  calendarSuperuserEmails: [
+    "mis@gos.co.id",
+  ],
 };
 
 // Microsoft Graph API scopes yang dibutuhkan

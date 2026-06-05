@@ -215,8 +215,15 @@ async function loadCalendar(offset = 0) {
     const userManagerEmail = (state.karyawan.emailAtasan || '').toLowerCase().trim();
     const userNip = (state.karyawan.nip || '').toLowerCase().trim();
 
+    // Akun superuser yang bisa lihat semua karyawan di kalender
+    const SUPERUSER_EMAILS = (APP_CONFIG.calendarSuperuserEmails || [])
+      .map(e => e.toLowerCase().trim());
+    const isSuperuser = SUPERUSER_EMAILS.includes(userEmail);
+
     // Helper: cek apakah item ini visible untuk user login
     const isVisible = (itemManagerEmail, itemNip) => {
+      // Superuser lihat semua
+      if (isSuperuser) return true;
       const mgrEmail = (itemManagerEmail || '').toLowerCase().trim();
       const nip = (itemNip || '').toLowerCase().trim();
       // Bawahan langsung user
