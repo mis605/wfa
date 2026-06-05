@@ -1,7 +1,7 @@
 {
-  "name": "Absen WFA - Sistem Kehadiran",
-  "short_name": "Absen WFA",
-  "description": "Sistem absensi Work From Anywhere dengan Microsoft 365",
+  "name": "AttendHQ - Presensi Head Office",
+  "short_name": "AttendHQ",
+  "description": "Sistem Presensi Head Office PT. GOS INDORAYA berbasis Microsoft 365",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0f12",

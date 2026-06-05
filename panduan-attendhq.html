@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panduan AttendHQ — PT. GOS INDORAYA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --primary: #1a56db;
+    --primary-light: #eff6ff;
+    --primary-mid: #bfdbfe;
+    --accent: #0ea5e9;
+    --green: #059669;
+    --green-light: #ecfdf5;
+    --orange: #d97706;
+    --orange-light: #fffbeb;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --purple: #7c3aed;
+    --purple-light: #f5f3ff;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --font: 'Plus Jakarta Sans', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--gray-50);
+    color: var(--gray-900);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ---- PRINT ---- */
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white; font-size: 13px; }
+    .section { page-break-inside: avoid; }
+    .hero { background: var(--primary) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+
+  /* ---- LAYOUT ---- */
+  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---- HERO ---- */
+  .hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1a56db 50%, #0ea5e9 100%);
+    color: white;
+    padding: 56px 0 48px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -40px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 100px;
+    padding: 4px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .hero-title {
+    font-size: 2.6rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 14px;
+  }
+
+  .hero-title span { opacity: 0.75; }
+
+  .hero-sub {
+    font-size: 1rem;
+    opacity: 0.85;
+    max-width: 520px;
+    margin-bottom: 32px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .hero-meta-item {
+    font-size: 0.82rem;
+    opacity: 0.75;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ---- TOC ---- */
+  .toc-bar {
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .toc-inner {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .toc-inner::-webkit-scrollbar { display: none; }
+
+  .toc-link {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 14px 18px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-decoration: none;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .toc-link:hover { color: var(--primary); border-bottom-color: var(--primary-mid); }
+
+  /* ---- MAIN ---- */
+  .main { padding: 48px 0 80px; }
+
+  /* ---- SECTION ---- */
+  .section { margin-bottom: 56px; }
+
+  .section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 10px;
+  }
+
+  .section-label::before {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 2px;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--gray-900);
+    margin-bottom: 6px;
+  }
+
+  .section-desc {
+    color: var(--gray-500);
+    font-size: 0.92rem;
+    margin-bottom: 28px;
+    max-width: 580px;
+  }
+
+  /* ---- AUDIENCE TABS ---- */
+  .audience-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .aud-tab {
+    padding: 8px 18px;
+    border-radius: 100px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid var(--gray-200);
+    background: white;
+    color: var(--gray-500);
+    transition: all 0.15s;
+  }
+
+  .aud-tab.active-staff { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .aud-tab.active-manager { border-color: var(--purple); background: var(--purple-light); color: var(--purple); }
+
+  /* ---- STEP CARDS ---- */
+  .steps { display: flex; flex-direction: column; gap: 14px; }
+
+  .step-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    padding: 20px 22px;
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+    transition: box-shadow 0.15s;
+  }
+
+  .step-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+
+  .step-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+
+  .step-num.green { background: var(--green-light); color: var(--green); }
+  .step-num.orange { background: var(--orange-light); color: var(--orange); }
+  .step-num.purple { background: var(--purple-light); color: var(--purple); }
+
+  .step-body { flex: 1; min-width: 0; }
+
+  .step-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    color: var(--gray-900);
+  }
+
+  .step-desc {
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    line-height: 1.6;
+  }
+
+  .step-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .badge-wfo { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+  .badge-wfa { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .badge-visit { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+
+  /* ---- INFO BOXES ---- */
+  .info-box {
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 16px 0;
+    display: flex;
+    gap: 12px;
+    font-size: 0.87rem;
+    line-height: 1.6;
+  }
+
+  .info-box .icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+  .info-box.tip { background: var(--primary-light); border: 1px solid var(--primary-mid); color: #1e40af; }
+  .info-box.warning { background: var(--orange-light); border: 1px solid #fde68a; color: #92400e; }
+  .info-box.success { background: var(--green-light); border: 1px solid #a7f3d0; color: #065f46; }
+  .info-box.info { background: var(--purple-light); border: 1px solid #ddd6fe; color: #4c1d95; }
+
+  /* ---- GRID CARDS ---- */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+
+  .feat-card {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .feat-card__icon {
+    font-size: 1.8rem;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .feat-card__title {
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 5px;
+  }
+
+  .feat-card__desc {
+    font-size: 0.82rem;
+    color: var(--gray-500);
+    line-height: 1.55;
+  }
+
+  /* ---- FAQ ---- */
+  .faq-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .faq-item {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .faq-q {
+    padding: 16px 18px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+    list-style: none;
+  }
+
+  .faq-q::after {
+    content: '▾';
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  details[open] .faq-q::after { transform: rotate(180deg); }
+
+  .faq-a {
+    padding: 0 18px 16px;
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    line-height: 1.65;
+    border-top: 1px solid var(--gray-100);
+    padding-top: 12px;
+  }
+
+  /* ---- TABLE ---- */
+  .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(--gray-200); margin: 16px 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; }
+  th {
+    background: var(--gray-50);
+    padding: 11px 14px;
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  td { padding: 11px 14px; border-top: 1px solid var(--gray-100); vertical-align: top; }
+  tr:hover td { background: var(--gray-50); }
+
+  /* ---- DIVIDER ---- */
+  .divider { height: 1px; background: var(--gray-200); margin: 48px 0; }
+
+  /* ---- AUDIENCE PILL ---- */
+  .for-staff { display: inline-flex; align-items: center; gap: 5px; background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-mid); border-radius: 100px; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; margin-bottom: 10px; }
+  .for-manager { display: inline-flex; align-items: center; gap: 5px; background: var(--purple-light); color: var(--purple); border: 1px solid #ddd6fe; border-radius: 100px; padding: 2px 10px; font-size: 0.72rem; font-weight: 700; margin-bottom: 10px; }
+
+  /* ---- FOOTER ---- */
+  .footer {
+    background: var(--gray-900);
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    padding: 28px 24px;
+    font-size: 0.8rem;
+  }
+
+  .footer strong { color: rgba(255,255,255,0.85); }
+
+  /* ---- TIMELINE ---- */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--gray-200); border-radius: 2px; }
+
+  .tl-item { position: relative; margin-bottom: 20px; }
+  .tl-dot { position: absolute; left: -24px; top: 5px; width: 14px; height: 14px; border-radius: 50%; background: var(--primary); border: 3px solid var(--primary-light); flex-shrink: 0; }
+  .tl-dot.green { background: var(--green); border-color: var(--green-light); }
+  .tl-dot.orange { background: var(--orange); border-color: var(--orange-light); }
+  .tl-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 3px; }
+  .tl-desc { font-size: 0.83rem; color: var(--gray-500); }
+
+  /* ---- PWA INSTALL ---- */
+  .pwa-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 600px) { .pwa-steps { grid-template-columns: 1fr; } }
+
+  .pwa-step {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .pwa-step__num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+  }
+
+  .pwa-step__text { font-size: 0.82rem; color: var(--gray-700); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="container">
+    <div class="hero-badge">📋 Panduan Penggunaan</div>
+    <h1 class="hero-title">AttendHQ<br><span>Sistem Presensi Head Office</span></h1>
+    <p class="hero-sub">Panduan resmi penggunaan aplikasi presensi untuk seluruh karyawan dan atasan di lingkungan Head Office PT. GOS INDORAYA.</p>
+    <div class="hero-meta">
+      <span class="hero-meta-item">🏢 PT. GOS INDORAYA</span>
+      <span class="hero-meta-item">📱 Web App + PWA</span>
+      <span class="hero-meta-item">🔐 Login Microsoft 365</span>
+      <span class="hero-meta-item">📅 Berlaku: Juni 2026</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOC -->
+<nav class="toc-bar no-print">
+  <div class="container">
+    <div class="toc-inner">
+      <a href="#pengenalan" class="toc-link">🔎 Pengenalan</a>
+      <a href="#instalasi" class="toc-link">📲 Instalasi PWA</a>
+      <a href="#staff" class="toc-link">👤 Panduan Staff</a>
+      <a href="#atasan" class="toc-link">👔 Panduan Atasan</a>
+      <a href="#faq" class="toc-link">❓ FAQ</a>
+      <a href="#kontak" class="toc-link">📞 Kontak</a>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+<div class="container">
+
+  <!-- PENGENALAN -->
+  <section class="section" id="pengenalan">
+    <div class="section-label">Pengenalan</div>
+    <h2 class="section-title">Apa itu AttendHQ?</h2>
+    <p class="section-desc">Aplikasi presensi digital berbasis web yang menggantikan pencatatan kehadiran manual untuk seluruh karyawan Head Office.</p>
+
+    <div class="grid-2">
+      <div class="feat-card">
+        <span class="feat-card__icon">📅</span>
+        <div class="feat-card__title">Kalender Kehadiran</div>
+        <div class="feat-card__desc">Lihat siapa saja yang hadir hari ini, sedang WFA, atau Visit — lengkap dengan jam masuk, jam keluar, dan durasi kerja.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-card__icon">🕒</span>
+        <div class="feat-card__title">Absen Digital</div>
+        <div class="feat-card__desc">Absen masuk dan keluar langsung dari HP. Pilih tipe kehadiran WFO, WFA, atau Visit setiap harinya.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-card__icon">✍️</span>
+        <div class="feat-card__title">Pengajuan WFA & Visit</div>
+        <div class="feat-card__desc">Ajukan jadwal Work From Anywhere atau kunjungan lapangan langsung dari aplikasi. Notifikasi otomatis dikirim ke atasan via email.</div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-card__icon">🔔</span>
+        <div class="feat-card__title">Notifikasi Real-time</div>
+        <div class="feat-card__desc">Atasan menerima email otomatis setiap ada pengajuan. Karyawan mendapat notifikasi in-app jika pengajuan dibatalkan atasan.</div>
+      </div>
+    </div>
+
+    <div class="info-box tip" style="margin-top:20px;">
+      <span class="icon">ℹ️</span>
+      <div>Aplikasi ini hanya untuk karyawan <strong>Head Office (HO)</strong>. Login menggunakan akun email Microsoft 365 perusahaan Anda (<code style="font-family:var(--mono);font-size:0.85em;">nama@gos.co.id</code>).</div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- INSTALASI PWA -->
+  <section class="section" id="instalasi">
+    <div class="section-label">Instalasi</div>
+    <h2 class="section-title">Install AttendHQ di HP</h2>
+    <p class="section-desc">AttendHQ bisa diinstal seperti aplikasi biasa di HP Anda tanpa perlu ke App Store atau Play Store.</p>
+
+    <div class="info-box success">
+      <span class="icon">✅</span>
+      <div>Dengan menginstal sebagai PWA, AttendHQ tampil fullscreen tanpa address bar, ada di home screen, dan bisa dibuka lebih cepat.</div>
+    </div>
+
+    <h3 style="font-size:0.95rem;font-weight:700;margin:20px 0 12px;">Android (Chrome)</h3>
+    <div class="pwa-steps">
+      <div class="pwa-step">
+        <div class="pwa-step__num">1</div>
+        <div class="pwa-step__text">Buka link AttendHQ di Chrome, lalu ketuk ikon <strong>⋮</strong> (tiga titik) di pojok kanan atas</div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step__num">2</div>
+        <div class="pwa-step__text">Pilih <strong>"Add to Home Screen"</strong> atau <strong>"Tambahkan ke Layar Utama"</strong></div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step__num">3</div>
+        <div class="pwa-step__text">Ketuk <strong>Tambahkan</strong>. Ikon AttendHQ akan muncul di home screen</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:0.95rem;font-weight:700;margin:20px 0 12px;">iPhone/iPad (Safari)</h3>
+    <div class="pwa-steps">
+      <div class="pwa-step">
+        <div class="pwa-step__num">1</div>
+        <div class="pwa-step__text">Buka link AttendHQ di Safari, lalu ketuk ikon <strong>Share</strong> (kotak dengan panah ke atas)</div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step__num">2</div>
+        <div class="pwa-step__text">Scroll ke bawah, pilih <strong>"Add to Home Screen"</strong> / <strong>"Tambahkan ke Layar Awal"</strong></div>
+      </div>
+      <div class="pwa-step">
+        <div class="pwa-step__num">3</div>
+        <div class="pwa-step__text">Ketuk <strong>Tambahkan</strong>. Ikon AttendHQ muncul di home screen</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PANDUAN STAFF -->
+  <section class="section" id="staff">
+    <div class="for-staff">👤 Untuk Staff / Karyawan</div>
+    <h2 class="section-title">Panduan Penggunaan Harian</h2>
+    <p class="section-desc">Ikuti langkah berikut setiap hari kerja. Pastikan sudah login dengan akun Microsoft 365 perusahaan.</p>
+
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:14px;">Hari Biasa (WFO)</h3>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Buka AttendHQ & Login</div>
+          <div class="step-desc">Buka aplikasi atau link AttendHQ. Ketuk <strong>"Masuk dengan Microsoft 365"</strong> dan gunakan akun email perusahaan Anda.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Buka Tab Absen</div>
+          <div class="step-desc">Ketuk tab <strong>Absen</strong> di navigasi bawah. Pilih tipe kehadiran: <span class="step-badge badge-wfo">WFO</span> karena Anda hadir di kantor.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num green">3</div>
+        <div class="step-body">
+          <div class="step-title">Ketuk "Absen Masuk"</div>
+          <div class="step-desc">Konfirmasi tipe dan jam di popup yang muncul, lalu ketuk <strong>"Konfirmasi & Absen"</strong>. Absen masuk bisa dilakukan antara <strong>07:00 – 10:00</strong>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num orange">4</div>
+        <div class="step-body">
+          <div class="step-title">Absen Keluar sebelum pulang</div>
+          <div class="step-desc">Sebelum meninggalkan kantor, ketuk <strong>"Absen Keluar"</strong>. Bisa dilakukan mulai pukul <strong>16:00</strong>. Durasi kerja otomatis dihitung.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box warning" style="margin-top:20px;">
+      <span class="icon">⚠️</span>
+      <div><strong>Toleransi keterlambatan 15 menit.</strong> Absen masuk antara 10:00–10:15 tercatat sebagai "Terlambat Ringan". Setelah 10:15 tercatat "Terlambat".</div>
+    </div>
+
+    <h3 style="font-size:1rem;font-weight:700;margin:28px 0 14px;">Hari WFA atau Visit</h3>
+    <div class="info-box info">
+      <span class="icon">📋</span>
+      <div>WFA (Work From Anywhere) dan Visit (Kunjungan Lapangan) <strong>harus diajukan terlebih dahulu</strong> sebelum bisa absen. Pengajuan bisa dilakukan H-1 atau hari yang sama sebelum jam absen.</div>
+    </div>
+
+    <div class="steps" style="margin-top:14px;">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Buka Tab Request</div>
+          <div class="step-desc">Ketuk tab <strong>Request</strong> di navigasi bawah. Pilih tipe: <span class="step-badge badge-wfa">WFA</span> atau <span class="step-badge badge-visit">Visit</span>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Pilih Tanggal & Isi Alasan</div>
+          <div class="step-desc">Ketuk tanggal di kalender (bisa lebih dari satu). Isi alasan pengajuan di kolom teks, lalu ketuk <strong>"Kirim Pengajuan"</strong>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num green">3</div>
+        <div class="step-body">
+          <div class="step-title">Email Terkirim Otomatis</div>
+          <div class="step-desc">Sistem langsung mengirim notifikasi email ke atasan Anda. Status pengajuan otomatis <strong>Disetujui</strong> — atasan hanya perlu tindakan jika ingin membatalkan.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num orange">4</div>
+        <div class="step-body">
+          <div class="step-title">Absen di Tab Absen</div>
+          <div class="step-desc">Setelah pengajuan terkirim, aplikasi otomatis mengarahkan ke Tab Absen. Pilih tipe yang sama, lalu absen masuk dan keluar seperti biasa.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box tip" style="margin-top:16px;">
+      <span class="icon">💡</span>
+      <div>Jika atasan membatalkan pengajuan Anda, notifikasi akan muncul otomatis di aplikasi saat Anda login berikutnya lengkap dengan catatan alasan dari atasan.</div>
+    </div>
+
+    <h3 style="font-size:1rem;font-weight:700;margin:28px 0 14px;">Tab Kalender — Pantau Kehadiran Tim</h3>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Lihat status rekan satu tim</div>
+          <div class="step-desc">Tab Kalender menampilkan semua rekan yang memiliki atasan sama. Badge berwarna menunjukkan tipe kehadiran: <span class="step-badge badge-wfo">WFO</span> <span class="step-badge badge-wfa">WFA</span> <span class="step-badge badge-visit">Visit</span>. Tanda <strong>*</strong> kuning berarti belum absen.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Ketuk tanggal untuk detail</div>
+          <div class="step-desc">Ketuk tanggal manapun untuk melihat detail lengkap: jam masuk, jam keluar, dan durasi kerja setiap orang pada hari tersebut.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PANDUAN ATASAN -->
+  <section class="section" id="atasan">
+    <div class="for-manager">👔 Untuk Atasan / Manajer</div>
+    <h2 class="section-title">Panduan Manajemen Tim</h2>
+    <p class="section-desc">Sebagai atasan, Anda mendapat notifikasi email setiap ada pengajuan dari bawahan. Tidak perlu login untuk membatalkan pengajuan.</p>
+
+    <h3 style="font-size:1rem;font-weight:700;margin-bottom:14px;">Menerima & Mengelola Pengajuan</h3>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Terima email notifikasi</div>
+          <div class="step-desc">Setiap ada pengajuan WFA atau Visit dari bawahan, Anda mendapat email otomatis berisi: nama karyawan, tipe pengajuan, tanggal, dan alasan. Status sudah <strong>Disetujui secara otomatis</strong>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num green">2</div>
+        <div class="step-body">
+          <div class="step-title">Setuju? Tidak perlu tindakan</div>
+          <div class="step-desc">Jika Anda menyetujui pengajuan, <strong>cukup abaikan email</strong>. Sistem sudah mencatat sebagai disetujui dan karyawan bisa langsung absen.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num orange">3</div>
+        <div class="step-body">
+          <div class="step-title">Ingin menolak? Klik tombol di email</div>
+          <div class="step-desc">Klik tombol <strong>"Batalkan / Tolak Pengajuan"</strong> (merah) di email. Browser akan membuka AttendHQ dan menampilkan form konfirmasi penolakan.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num purple">4</div>
+        <div class="step-body">
+          <div class="step-title">Isi catatan & konfirmasi</div>
+          <div class="step-desc">Isi alasan penolakan (opsional), lalu ketuk <strong>"Konfirmasi Batalkan"</strong>. Email otomatis dikirim ke karyawan berisi status dan catatan Anda. CC ke HRD dan MIS.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-box warning" style="margin-top:20px;">
+      <span class="icon">⚠️</span>
+      <div>Pembatalan pengajuan <strong>tidak bisa dibatalkan kembali</strong>. Jika karyawan perlu WFA/Visit setelah ditolak, mereka harus mengajukan ulang melalui aplikasi.</div>
+    </div>
+
+    <h3 style="font-size:1rem;font-weight:700;margin:28px 0 14px;">Memantau Kehadiran Tim di Kalender</h3>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Login ke AttendHQ</div>
+          <div class="step-desc">Buka AttendHQ dan login dengan akun Microsoft 365 Anda. Halaman default yang terbuka adalah <strong>Tab Kalender</strong>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num green">2</div>
+        <div class="step-body">
+          <div class="step-title">Lihat kehadiran seluruh bawahan</div>
+          <div class="step-desc">Sebagai atasan, kalender menampilkan semua bawahan langsung Anda beserta tipe kehadiran mereka. Navigasi bulan dengan tombol ◀ ▶, atau kembali ke bulan ini dengan tombol <strong>"Hari Ini"</strong>.</div>
+        </div>
+      </div>
+      <div class="step-card">
+        <div class="step-num orange">3</div>
+        <div class="step-body">
+          <div class="step-title">Perhatikan tanda * kuning</div>
+          <div class="step-desc">Nama dengan tanda <strong>*</strong> berwarna kuning berarti karyawan tersebut punya jadwal WFA/Visit yang disetujui tapi <strong>belum melakukan absen</strong> pada hari tersebut.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:1rem;font-weight:700;margin:28px 0 14px;">Ringkasan Kewajiban Atasan</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Situasi</th>
+            <th>Tindakan</th>
+            <th>Cara</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Terima email pengajuan WFA/Visit</td>
+            <td>✅ Setuju</td>
+            <td>Tidak perlu tindakan apapun</td>
+          </tr>
+          <tr>
+            <td>Terima email pengajuan WFA/Visit</td>
+            <td>❌ Tolak/Batalkan</td>
+            <td>Klik tombol merah di email → isi catatan → konfirmasi</td>
+          </tr>
+          <tr>
+            <td>Bawahan belum absen (tanda *)</td>
+            <td>📢 Ingatkan</td>
+            <td>Hubungi bawahan secara langsung (di luar aplikasi)</td>
+          </tr>
+          <tr>
+            <td>Memantau kehadiran tim</td>
+            <td>👁️ Monitor</td>
+            <td>Login AttendHQ → Tab Kalender</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- FAQ -->
+  <section class="section" id="faq">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Pertanyaan Umum</h2>
+    <p class="section-desc">Pertanyaan yang sering ditanyakan seputar penggunaan AttendHQ.</p>
+
+    <div class="faq-list">
+
+      <details class="faq-item">
+        <summary class="faq-q">Saya lupa absen masuk, bagaimana?</summary>
+        <div class="faq-a">Hubungi tim MIS atau HRD untuk koreksi data absensi secara manual melalui SharePoint. Absen tidak bisa diisi mundur melalui aplikasi.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Bisa mengajukan WFA untuk beberapa hari sekaligus?</summary>
+        <div class="faq-a">Bisa. Di Tab Request, ketuk beberapa tanggal sekaligus di kalender (semua tanggal akan terseleksi). Semua tanggal tersebut akan masuk dalam satu pengajuan dan satu email ke atasan.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Apakah bisa WFA dan Visit di hari yang sama?</summary>
+        <div class="faq-a">Tidak. Setiap hari hanya bisa memiliki satu tipe kehadiran. Jika perlu WFA sekaligus kunjungan, pilih tipe yang lebih dominan pada hari tersebut.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Pengajuan saya sudah dikirim tapi tombol absen tidak muncul?</summary>
+        <div class="faq-a">Pastikan Anda memilih tipe yang sama dengan pengajuan (WFA atau Visit) di Tab Absen. Jika masih tidak muncul, coba logout dan login kembali, atau hubungi MIS.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Saya tidak menerima email notifikasi dari atasan. Normal?</summary>
+        <div class="faq-a">Jika pengajuan Anda diterima/dibiarkan oleh atasan, Anda tidak akan menerima email — itu normal karena sistem auto-approve. Email hanya dikirim ke Anda jika pengajuan <strong>dibatalkan/ditolak</strong> oleh atasan.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Bagaimana cara mengetahui apakah pengajuan saya sudah dilihat atasan?</summary>
+        <div class="faq-a">Sistem tidak memiliki fitur read receipt. Namun karena status sudah <strong>Approved secara otomatis</strong>, Anda bisa langsung absen tanpa menunggu konfirmasi dari atasan. Jika atasan menolak, Anda akan mendapat notifikasi.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Saya sudah absen WFO tapi ingin ganti ke WFA. Bisa?</summary>
+        <div class="faq-a">Tidak bisa mengubah tipe kehadiran setelah absen masuk tersimpan. Hubungi MIS untuk koreksi jika ada kesalahan input.</div>
+      </details>
+
+      <details class="faq-item">
+        <summary class="faq-q">Aplikasi tidak bisa dibuka / error saat login?</summary>
+        <div class="faq-a">Pastikan menggunakan browser terbaru (Chrome atau Safari). Coba clear cache browser, lalu buka ulang link. Jika masih bermasalah, hubungi tim MIS dengan screenshot error yang muncul.</div>
+      </details>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- KONTAK -->
+  <section class="section" id="kontak">
+    <div class="section-label">Kontak & Dukungan</div>
+    <h2 class="section-title">Butuh Bantuan?</h2>
+    <p class="section-desc">Hubungi tim yang bertanggung jawab sesuai jenis pertanyaan Anda.</p>
+
+    <div class="grid-2">
+      <div class="feat-card">
+        <span class="feat-card__icon">💻</span>
+        <div class="feat-card__title">Tim MIS</div>
+        <div class="feat-card__desc">Masalah teknis, error aplikasi, akun tidak terdaftar, koreksi data absensi, akses superuser.<br><br>
+        📧 <a href="mailto:mis@gos.co.id" style="color:var(--primary);">mis@gos.co.id</a></div>
+      </div>
+      <div class="feat-card">
+        <span class="feat-card__icon">👥</span>
+        <div class="feat-card__title">Tim HC / HRD</div>
+        <div class="feat-card__desc">Pertanyaan kebijakan kehadiran, izin khusus, rekap bulanan, atau perubahan data karyawan.<br><br>
+        📧 <a href="mailto:hc.info@gos.co.id" style="color:var(--primary);">hc.info@gos.co.id</a></div>
+      </div>
+    </div>
+
+    <div class="info-box tip" style="margin-top:20px;">
+      <span class="icon">💡</span>
+      <div>Saat menghubungi MIS untuk masalah teknis, sertakan: <strong>nama akun Microsoft 365</strong>, <strong>screenshot error</strong>, dan <strong>langkah yang sudah dilakukan</strong> agar dapat ditangani lebih cepat.</div>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <strong>AttendHQ</strong> — Sistem Presensi Head Office PT. GOS INDORAYA<br>
+  Dokumen panduan ini berlaku mulai Juni 2026 · Pertanyaan: <a href="mailto:mis@gos.co.id" style="color:rgba(255,255,255,0.6);">mis@gos.co.id</a>
+</footer>
+
+<script>
+  // Tambah event listener untuk btn-close-rejected-notif-ok
+  document.querySelectorAll('[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+</script>
+
+</body>
+</html>
