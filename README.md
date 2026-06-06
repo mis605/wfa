@@ -12,7 +12,8 @@ Aplikasi presensi digital untuk karyawan **Head Office PT. GOS INDORAYA**, diban
 | 📅 **Kalender Kehadiran** | Tampilan kalender real-time dengan badge tipe kehadiran (WFO/WFA/Visit) dan indikator belum absen |
 | 🕒 **Absen Digital** | Absen masuk & keluar dengan pilihan tipe, konfirmasi modal, dan progress bar |
 | ✍️ **Pengajuan WFA & Visit** | Pengajuan multi-tanggal langsung dari app; notifikasi email otomatis ke atasan; auto-approve |
-| 🔔 **Notifikasi In-app** | Notifikasi otomatis jika pengajuan dibatalkan/ditolak atasan saat login berikutnya |
+| 🔔 **Notifikasi In-app** | Notifikasi otomatis jika pengajuan dibatalkan/ditolak atasan saat login berikutnya. Status tersimpan di SharePoint (`Notified_User`) — tidak muncul lagi di device manapun |
+| 👥 **Manajemen Tim** | Atasan dapat menambah, mengedit, dan menghapus anggota tim langsung dari aplikasi. NIK otomatis terisi dari nilai tertinggi yang ada |
 | 📲 **PWA** | Bisa diinstal di home screen HP (Android & iOS) seperti aplikasi native |
 | ⚡ **Performa Optimal** | Server-side filter via Graph API `$filter` + in-memory cache 5 menit |
 
@@ -119,6 +120,7 @@ Buat tiga List di SharePoint site organisasi dengan kolom berikut:
 | Email_Atasan | Single line | Email atasan |
 | Catatan_User | Multiple lines | Alasan pengajuan |
 | Catatan_Atasan | Multiple lines | Catatan penolakan (opsional) |
+| Notified_User | Single line | `true` jika user sudah melihat notifikasi penolakan — **wajib ada**, diisi sistem otomatis |
 
 > **Tips performa**: Aktifkan **Indexed columns** pada kolom `Tanggal` di list Absensi.
 > Caranya: SharePoint list → Settings → Indexed columns → Create a new index → pilih `Tanggal`.
@@ -140,12 +142,11 @@ const APP_CONFIG = {
   listKaryawanId:      "GUID_LIST_KARYAWAN",
   listPermohonanWfaId: "GUID_LIST_PERMOHONAN",
 
-  // Jam kerja
-  jamMasukMulai:    "07:00",
-  jamMasukSelesai:  "10:00",
-  jamKeluarMulai:   "16:00",
-  jamKeluarSelesai: "20:00",
-  toleransiTerlambat: 15, // menit
+  // Jam kerja (absen masuk FLEKSIBEL, keluar minimal 9 jam setelah masuk)
+  durasiKerjaJam:   9,      // minimal jam kerja sebelum bisa absen keluar
+  jamKeluarSelesai: "23:59",// batas akhir absen keluar (safety)
+  jamAcuanTepat:    "08:00",// acuan jam "Tepat Waktu" untuk status absensi
+  toleransiTerlambat: 15,   // menit toleransi setelah jamAcuanTepat
 
   // Identitas perusahaan
   namaPerusahaan: "PT. GOS INDORAYA",
@@ -284,6 +285,7 @@ Tidak ada npm/bundler. Semua berjalan sebagai vanilla JS ES Modules langsung di 
 - Seluruh data tersimpan di SharePoint organisasi — tidak ada server pihak ketiga
 - Token autentikasi dikelola oleh MSAL.js dengan mekanisme silent refresh
 - Auto-approve dilakukan di frontend; untuk keamanan lebih ketat di masa mendatang dapat dimigrasi ke Power Automate atau backend
+- Status notifikasi penolakan disimpan di kolom `Notified_User` SharePoint — tidak bergantung pada localStorage sehingga konsisten lintas device dan browser
 - `calendarSuperuserEmails` dikonfigurasi di `config.js` — pastikan hanya email yang terpercaya yang ditambahkan
 
 ---
