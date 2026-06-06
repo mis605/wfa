@@ -555,7 +555,7 @@ class GraphService {
   }
 }
 
-  // Tandai request rejected sudah dinotif user (persist ke SharePoint)
+  // Tandai request rejected sudah dinotif (persist ke SharePoint kolom Notified_User)
   async markRejectedAsNotified(requestId) {
     await this.updateListItem(APP_CONFIG.listPermohonanWfaId, requestId, {
       Notified_User: 'true'
@@ -563,16 +563,13 @@ class GraphService {
     cacheInvalidate(`list:${APP_CONFIG.listPermohonanWfaId}`);
   }
 
-  // Generate NIK berikutnya: ambil NIK tertinggi dari list karyawan, +1
+  // Generate NIK berikutnya dari NIK tertinggi di list karyawan + 1
   async getNextNik() {
     const karyawan = await this.getAllKaryawan();
     if (karyawan.length === 0) return '';
-    const niks = karyawan
-      .map(k => parseInt(k.nip, 10))
-      .filter(n => !isNaN(n));
+    const niks = karyawan.map(k => parseInt(k.nip, 10)).filter(n => !isNaN(n));
     if (niks.length === 0) return '';
-    const maxNik = Math.max(...niks);
-    return String(maxNik + 1);
+    return String(Math.max(...niks) + 1);
   }
 
 

@@ -95,26 +95,13 @@ function showFatalError(message) {
   errorEl.classList.remove('hidden');
 }
 
-// Global uncaught error handler — hanya untuk error benar-benar fatal
-// JANGAN intercept MSAL errors (redirect, iframe, token) — biarkan auth.js handle sendiri
+// Global uncaught error handler
 window.addEventListener('unhandledrejection', (event) => {
-  const reason = event.reason;
-  const msg = reason?.message || String(reason) || '';
-
-  // Abaikan MSAL-related rejections — mereka ditangani oleh auth.js
-  const isMsalError = msg.includes('MSAL') || msg.includes('msal') ||
-    msg.includes('interaction_in_progress') || msg.includes('login_required') ||
-    msg.includes('token') || msg.includes('redirect') || msg.includes('iframe') ||
-    msg.includes('acquireToken') || msg.includes('handleRedirect');
-
-  if (isMsalError) {
-    console.warn('[App] MSAL-related rejection (ignored by error boundary):', msg);
-    event.preventDefault();
-    return;
+  console.error('[App] Unhandled rejection:', event.reason);
+  // Hanya tampilkan fatal error kalau belum ada view yang aktif
+  if (!state.user) {
+    showFatalError('Gagal memuat aplikasi. Periksa koneksi internet Anda.');
   }
-
-  // Hanya log, tidak tampilkan fatal error — biarkan flow normal
-  console.error('[App] Unhandled rejection:', reason);
 });
 
 // ============================================================
@@ -124,24 +111,11 @@ async function initApp() {
   showView('loading');
   try {
     await authService.init();
-    if (!authService.isLoggedIn()) {
-      showView('login');
-      return;
-    }
+    if (!authService.isLoggedIn()) { showView('login'); return; }
     await loadUserSession();
   } catch (err) {
     console.error('Init error:', err);
-    // Di HP, banyak error MSAL yang bukan fatal (redirect, iframe blocked)
-    // Cukup kembalikan ke halaman login daripada showFatalError
-    const msg = err?.message || '';
-    const isMsalRelated = msg.includes('MSAL') || msg.includes('msal') ||
-      msg.includes('redirect') || msg.includes('token') || msg.includes('iframe');
-    if (isMsalRelated) {
-      console.warn('[App] MSAL error during init, redirecting to login:', msg);
-      showView('login');
-    } else {
-      showFatalError('Gagal memulai aplikasi: ' + msg);
-    }
+    showFatalError('Gagal menginisialisasi aplikasi: ' + err.message);
   }
 }
 
@@ -184,8 +158,8 @@ async function loadUserSession() {
       else { el.style.backgroundImage = 'none'; el.textContent = initials; }
     });
 
-    // NO.7 — Cek request yang ditolak sejak terakhir login
-    await checkRejectedRequests();
+    // NO.7 — Cek request yang ditolak sejak terakhir login (non-blocking)
+    checkRejectedRequests().catch(err => console.warn('checkRejectedRequests failed:', err.message));
 
     const params = new URLSearchParams(window.location.search);
     const action = params.get('action');
@@ -200,22 +174,7 @@ async function loadUserSession() {
 
   } catch (err) {
     console.error('Session error:', err);
-    const msg = err?.message || '';
-    const isMsalRelated = msg.includes('MSAL') || msg.includes('msal') ||
-      msg.includes('redirect') || msg.includes('token') || msg.includes('iframe') ||
-      msg.includes('acquireToken') || msg.includes('Sesi masuk');
-    if (isMsalRelated) {
-      // Session expired atau token problem — kembalikan ke login bukan fatal error
-      console.warn('[App] Session/token error, back to login:', msg);
-      showView('login');
-      const errEl = document.getElementById('login-error');
-      if (errEl) {
-        errEl.textContent = 'Sesi Anda telah berakhir. Silakan masuk kembali.';
-        errEl.classList.remove('hidden');
-      }
-    } else {
-      showFatalError('Gagal memuat sesi: ' + msg);
-    }
+    showFatalError('Gagal memuat sesi: ' + err.message);
   }
 }
 
@@ -247,22 +206,55 @@ function getStatusClass(status) {
 // NO.7 — CEK REQUEST DITOLAK (notifikasi in-app)
 // ============================================================
 async function checkRejectedRequests() {
+  // Non-blocking — error di sini tidak boleh mempengaruhi login flow
   try {
     const userEmail = state.user.mail || state.user.userPrincipalName;
     const requests = await graphService.getPermohonanWfa(userEmail);
 
-    // Filter: Rejected DAN belum dinotif (Notified_User != 'true')
-    // Disimpan di SharePoint agar tidak hilang saat browser di-clear
-    const newlyRejected = requests.filter(req =>
-      req.status === 'Rejected' && !req.notifiedUser
-    );
+    // Filter: Rejected DAN Notified_User bukan 'true' di SharePoint
+    // Fallback ke localStorage jika kolom belum ada di SharePoint
+    const notifiedKey = `notified_rejected_${state.karyawan.nip}`;
+    const localNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]')
+      .map(id => String(id));
+
+    const newlyRejected = requests.filter(req => {
+      if (req.status !== 'Rejected') return false;
+      // Jika kolom Notified_User sudah ada dan true → skip
+      if (req.notifiedUser === true) return false;
+      // Fallback: cek localStorage
+      if (localNotified.includes(String(req.id))) return false;
+      return true;
+    });
 
     if (newlyRejected.length > 0) {
       showRejectedNotification(newlyRejected);
     }
   } catch (err) {
-    console.warn('Gagal cek request ditolak:', err.message);
+    console.warn('Gagal cek request ditolak (non-fatal):', err.message);
   }
+}
+
+async function markAndCloseRejectedNotif() {
+  try {
+    const userEmail = state.user.mail || state.user.userPrincipalName;
+    const requests = await graphService.getPermohonanWfa(userEmail);
+    const unnotified = requests.filter(r => r.status === 'Rejected' && !r.notifiedUser);
+
+    // Simpan ke SharePoint (jika kolom sudah ada)
+    await Promise.all(unnotified.map(r =>
+      graphService.markRejectedAsNotified(r.id).catch(() => {})
+    ));
+
+    // Fallback: simpan ke localStorage juga sebagai backup
+    const notifiedKey = `notified_rejected_${state.karyawan.nip}`;
+    const existing = JSON.parse(localStorage.getItem(notifiedKey) || '[]').map(String);
+    const updated = [...new Set([...existing, ...unnotified.map(r => String(r.id))])];
+    localStorage.setItem(notifiedKey, JSON.stringify(updated));
+
+  } catch (err) {
+    console.warn('Gagal mark notified:', err.message);
+  }
+  closeRejectedNotif();
 }
 
 function showRejectedNotification(rejectedList) {
@@ -291,20 +283,6 @@ function closeRejectedNotif() {
     modal.classList.remove('modal--show');
     setTimeout(() => modal.classList.add('hidden'), 300);
   }
-}
-
-async function markAndCloseRejectedNotif() {
-  // Ambil semua request rejected yang belum dinotif dari state terakhir
-  try {
-    const userEmail = state.user.mail || state.user.userPrincipalName;
-    const requests = await graphService.getPermohonanWfa(userEmail);
-    const unnotified = requests.filter(r => r.status === 'Rejected' && !r.notifiedUser);
-    // Update semua secara paralel
-    await Promise.all(unnotified.map(r => graphService.markRejectedAsNotified(r.id)));
-  } catch (err) {
-    console.warn('Gagal mark notified:', err.message);
-  }
-  closeRejectedNotif();
 }
 
 // ============================================================
@@ -1090,9 +1068,8 @@ async function openFormAnggota(mode, item = null) {
     try {
       const nextNik = await graphService.getNextNik();
       nipInput.value = nextNik;
-      nipInput.placeholder = nextNik || 'Masukkan NIK manual';
     } catch (err) {
-      nipInput.placeholder = 'Gagal auto-generate, isi manual';
+      nipInput.placeholder = 'Isi NIK manual';
     } finally {
       nipInput.disabled = false;
     }
