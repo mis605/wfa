@@ -70,12 +70,23 @@
     <header class="topbar">
       <span class="topbar__logo">Attend<span>HQ</span></span>
       <div class="topbar__actions">
-        <div class="user-avatar" id="topbar-avatar" title="Profil saya"></div>
-        <button class="btn-icon" id="btn-logout" title="Keluar">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
-          </svg>
-        </button>
+        <div class="user-menu-wrap" id="user-menu-wrap">
+          <div class="user-avatar" id="topbar-avatar" title="Profil saya"></div>
+          <div class="user-dropdown hidden" id="user-dropdown">
+            <div class="user-dropdown__header">
+              <div class="user-dropdown__name" id="dropdown-nama">-</div>
+              <div class="user-dropdown__email" id="dropdown-email">-</div>
+            </div>
+            <div class="user-dropdown__divider"></div>
+            <button class="user-dropdown__item" id="btn-menu-tim">
+              <span>👥</span> Kelola Tim Saya
+            </button>
+            <div class="user-dropdown__divider"></div>
+            <button class="user-dropdown__item user-dropdown__item--danger" id="btn-menu-logout">
+              <span>🚪</span> Keluar
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -432,6 +443,101 @@
     <button class="btn-primary" id="btn-close-rejected-notif-ok" style="width: 100%; margin-top: 16px;">
       Mengerti
     </button>
+  </div>
+</div>
+
+<!-- ========== MODAL KELOLA TIM ========== -->
+<div id="modal-tim" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-tim-title">
+  <div class="modal__sheet modal__sheet--tall">
+    <div class="modal__handle"></div>
+    <div class="modal__header">
+      <h2 class="modal__title" id="modal-tim-title">👥 Kelola Tim Saya</h2>
+      <button class="btn-icon" id="btn-close-tim" aria-label="Tutup">✕</button>
+    </div>
+
+    <!-- Loading state -->
+    <div id="tim-loading" style="text-align:center;padding:32px 0;">
+      <span class="spinner"></span>
+      <p style="margin-top:12px;font-size:0.85rem;color:var(--text-secondary);">Memuat data tim...</p>
+    </div>
+
+    <!-- List anggota tim -->
+    <div id="tim-content" class="hidden">
+      <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:14px;">
+        Anggota tim yang memiliki Anda sebagai atasan langsung.
+      </p>
+
+      <div id="tim-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;max-height:40vh;overflow-y:auto;padding-right:4px;"></div>
+
+      <!-- Tombol tambah anggota -->
+      <button class="btn-primary" id="btn-tambah-anggota" style="width:100%;">
+        + Tambah Anggota Tim
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL FORM ANGGOTA (Add / Edit) ========== -->
+<div id="modal-form-anggota" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal__sheet">
+    <div class="modal__handle"></div>
+    <div class="modal__header">
+      <h2 class="modal__title" id="form-anggota-title">Tambah Anggota</h2>
+      <button class="btn-icon" id="btn-close-form-anggota" aria-label="Tutup">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="form-group">
+        <label class="form-label">NIP / NRK *</label>
+        <input type="text" class="form-input" id="form-nip" placeholder="900000001">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap *</label>
+        <input type="text" class="form-input" id="form-nama" placeholder="Nama Karyawan">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Microsoft 365 *</label>
+        <input type="email" class="form-input" id="form-email" placeholder="nama@gos.co.id">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jabatan</label>
+        <input type="text" class="form-input" id="form-jabatan" placeholder="Staff Operasional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Departemen</label>
+        <input type="text" class="form-input" id="form-departemen" placeholder="MIS">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="form-status">
+          <option value="Aktif">Aktif</option>
+          <option value="Tidak Aktif">Tidak Aktif</option>
+        </select>
+      </div>
+
+      <div id="form-anggota-error" class="hidden" style="padding:10px 12px;background:var(--red-dim);border:1px solid var(--red);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--red);"></div>
+
+      <button class="btn-primary" id="btn-simpan-anggota" style="width:100%;margin-top:4px;">
+        Simpan
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== MODAL KONFIRMASI HAPUS ANGGOTA ========== -->
+<div id="modal-hapus-anggota" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="modal__sheet">
+    <div class="modal__handle"></div>
+    <div class="modal__header">
+      <h2 class="modal__title">Hapus Anggota Tim?</h2>
+    </div>
+    <div class="info-box info-box--warning" style="margin-bottom:16px;">
+      <p>Anggota <strong id="hapus-nama-target">-</strong> akan dihapus dari daftar karyawan. Tindakan ini tidak bisa dibatalkan.</p>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-secondary" id="btn-batal-hapus" style="flex:1;">Batal</button>
+      <button class="btn-primary btn--danger" id="btn-konfirmasi-hapus" style="flex:1;">Ya, Hapus</button>
+    </div>
   </div>
 </div>
 
