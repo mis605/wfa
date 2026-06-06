@@ -95,13 +95,26 @@ function showFatalError(message) {
   errorEl.classList.remove('hidden');
 }
 
-// Global uncaught error handler
+// Global uncaught error handler — hanya untuk error benar-benar fatal
+// JANGAN intercept MSAL errors (redirect, iframe, token) — biarkan auth.js handle sendiri
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('[App] Unhandled rejection:', event.reason);
-  // Hanya tampilkan fatal error kalau belum ada view yang aktif
-  if (!state.user) {
-    showFatalError('Gagal memuat aplikasi. Periksa koneksi internet Anda.');
+  const reason = event.reason;
+  const msg = reason?.message || String(reason) || '';
+
+  // Abaikan MSAL-related rejections — mereka ditangani oleh auth.js
+  const isMsalError = msg.includes('MSAL') || msg.includes('msal') ||
+    msg.includes('interaction_in_progress') || msg.includes('login_required') ||
+    msg.includes('token') || msg.includes('redirect') || msg.includes('iframe') ||
+    msg.includes('acquireToken') || msg.includes('handleRedirect');
+
+  if (isMsalError) {
+    console.warn('[App] MSAL-related rejection (ignored by error boundary):', msg);
+    event.preventDefault();
+    return;
   }
+
+  // Hanya log, tidak tampilkan fatal error — biarkan flow normal
+  console.error('[App] Unhandled rejection:', reason);
 });
 
 // ============================================================
@@ -111,11 +124,24 @@ async function initApp() {
   showView('loading');
   try {
     await authService.init();
-    if (!authService.isLoggedIn()) { showView('login'); return; }
+    if (!authService.isLoggedIn()) {
+      showView('login');
+      return;
+    }
     await loadUserSession();
   } catch (err) {
     console.error('Init error:', err);
-    showFatalError('Gagal menginisialisasi aplikasi: ' + err.message);
+    // Di HP, banyak error MSAL yang bukan fatal (redirect, iframe blocked)
+    // Cukup kembalikan ke halaman login daripada showFatalError
+    const msg = err?.message || '';
+    const isMsalRelated = msg.includes('MSAL') || msg.includes('msal') ||
+      msg.includes('redirect') || msg.includes('token') || msg.includes('iframe');
+    if (isMsalRelated) {
+      console.warn('[App] MSAL error during init, redirecting to login:', msg);
+      showView('login');
+    } else {
+      showFatalError('Gagal memulai aplikasi: ' + msg);
+    }
   }
 }
 
@@ -174,7 +200,22 @@ async function loadUserSession() {
 
   } catch (err) {
     console.error('Session error:', err);
-    showFatalError('Gagal memuat sesi: ' + err.message);
+    const msg = err?.message || '';
+    const isMsalRelated = msg.includes('MSAL') || msg.includes('msal') ||
+      msg.includes('redirect') || msg.includes('token') || msg.includes('iframe') ||
+      msg.includes('acquireToken') || msg.includes('Sesi masuk');
+    if (isMsalRelated) {
+      // Session expired atau token problem — kembalikan ke login bukan fatal error
+      console.warn('[App] Session/token error, back to login:', msg);
+      showView('login');
+      const errEl = document.getElementById('login-error');
+      if (errEl) {
+        errEl.textContent = 'Sesi Anda telah berakhir. Silakan masuk kembali.';
+        errEl.classList.remove('hidden');
+      }
+    } else {
+      showFatalError('Gagal memuat sesi: ' + msg);
+    }
   }
 }
 
