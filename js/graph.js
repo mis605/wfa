@@ -181,6 +181,12 @@ class GraphService {
     return cacheSet('map:nip-atasan', map);
   }
 
+  // Paksa invalidate cache karyawan — dipakai sebelum cek duplikasi NIK/email
+  invalidateKaryawanCache() {
+    cacheInvalidate('list:karyawan');
+    cacheInvalidate('map:nip-atasan');
+  }
+
   async tambahKaryawan(data) {
     const fields = {
       Title: data.nip, Nama: data.nama, Email: data.email,
@@ -344,8 +350,7 @@ class GraphService {
       status: item.Status || 'Pending',
       emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
       catatanUser: item.Catatan_User || item.CatatanUser || item.Catatan || '',
-      catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || '',
-      notifiedUser: item.Notified_User === 'true'
+      catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || ''
     };
   }
 
@@ -554,24 +559,6 @@ class GraphService {
     return result;
   }
 }
-
-  // Tandai request rejected sudah dinotif (persist ke SharePoint kolom Notified_User)
-  async markRejectedAsNotified(requestId) {
-    await this.updateListItem(APP_CONFIG.listPermohonanWfaId, requestId, {
-      Notified_User: 'true'
-    });
-    cacheInvalidate(`list:${APP_CONFIG.listPermohonanWfaId}`);
-  }
-
-  // Generate NIK berikutnya dari NIK tertinggi di list karyawan + 1
-  async getNextNik() {
-    const karyawan = await this.getAllKaryawan();
-    if (karyawan.length === 0) return '';
-    const niks = karyawan.map(k => parseInt(k.nip, 10)).filter(n => !isNaN(n));
-    if (niks.length === 0) return '';
-    return String(Math.max(...niks) + 1);
-  }
-
 
 const graphService = new GraphService();
 export default graphService;
