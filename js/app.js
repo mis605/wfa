@@ -158,8 +158,8 @@ async function loadUserSession() {
       else { el.style.backgroundImage = 'none'; el.textContent = initials; }
     });
 
-    // NO.7 — Cek request yang ditolak sejak terakhir login (non-blocking)
-    checkRejectedRequests().catch(err => console.warn('checkRejectedRequests failed:', err.message));
+    // NO.7 — Cek request yang ditolak sejak terakhir login
+    await checkRejectedRequests();
 
     const params = new URLSearchParams(window.location.search);
     const action = params.get('action');
@@ -206,55 +206,32 @@ function getStatusClass(status) {
 // NO.7 — CEK REQUEST DITOLAK (notifikasi in-app)
 // ============================================================
 async function checkRejectedRequests() {
-  // Non-blocking — error di sini tidak boleh mempengaruhi login flow
   try {
     const userEmail = state.user.mail || state.user.userPrincipalName;
     const requests = await graphService.getPermohonanWfa(userEmail);
 
-    // Filter: Rejected DAN Notified_User bukan 'true' di SharePoint
-    // Fallback ke localStorage jika kolom belum ada di SharePoint
+    // Ambil key dari localStorage untuk track request yang sudah dinotif
+    // Semua ID dikonversi ke String untuk menghindari type mismatch (number vs string)
     const notifiedKey = `notified_rejected_${state.karyawan.nip}`;
-    const localNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]')
+    const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]')
       .map(id => String(id));
 
-    const newlyRejected = requests.filter(req => {
-      if (req.status !== 'Rejected') return false;
-      // Jika kolom Notified_User sudah ada dan true → skip
-      if (req.notifiedUser === true) return false;
-      // Fallback: cek localStorage
-      if (localNotified.includes(String(req.id))) return false;
-      return true;
-    });
+    const newlyRejected = requests.filter(req =>
+      req.status === 'Rejected' && !alreadyNotified.includes(String(req.id))
+    );
 
     if (newlyRejected.length > 0) {
+      // Tandai sebagai sudah dinotif — simpan sebagai String agar konsisten
+      const newNotified = [...alreadyNotified, ...newlyRejected.map(r => String(r.id))];
+      localStorage.setItem(notifiedKey, JSON.stringify(newNotified));
+
+      // Tampilkan notifikasi in-app
       showRejectedNotification(newlyRejected);
     }
   } catch (err) {
-    console.warn('Gagal cek request ditolak (non-fatal):', err.message);
+    // Tidak fatal, cukup log
+    console.warn('Gagal cek request ditolak:', err.message);
   }
-}
-
-async function markAndCloseRejectedNotif() {
-  try {
-    const userEmail = state.user.mail || state.user.userPrincipalName;
-    const requests = await graphService.getPermohonanWfa(userEmail);
-    const unnotified = requests.filter(r => r.status === 'Rejected' && !r.notifiedUser);
-
-    // Simpan ke SharePoint (jika kolom sudah ada)
-    await Promise.all(unnotified.map(r =>
-      graphService.markRejectedAsNotified(r.id).catch(() => {})
-    ));
-
-    // Fallback: simpan ke localStorage juga sebagai backup
-    const notifiedKey = `notified_rejected_${state.karyawan.nip}`;
-    const existing = JSON.parse(localStorage.getItem(notifiedKey) || '[]').map(String);
-    const updated = [...new Set([...existing, ...unnotified.map(r => String(r.id))])];
-    localStorage.setItem(notifiedKey, JSON.stringify(updated));
-
-  } catch (err) {
-    console.warn('Gagal mark notified:', err.message);
-  }
-  closeRejectedNotif();
 }
 
 function showRejectedNotification(rejectedList) {
@@ -1040,7 +1017,7 @@ function renderTimList() {
   });
 }
 
-async function openFormAnggota(mode, item = null) {
+function openFormAnggota(mode, item = null) {
   _timState.editTarget = item;
   const modal = document.getElementById('modal-form-anggota');
   const title = document.getElementById('form-anggota-title');
@@ -1049,8 +1026,7 @@ async function openFormAnggota(mode, item = null) {
   title.textContent = mode === 'edit' ? 'Edit Anggota Tim' : 'Tambah Anggota Tim';
   errEl.classList.add('hidden');
 
-  const nipInput = document.getElementById('form-nip');
-  nipInput.value = item?.nip || '';
+  document.getElementById('form-nip').value = item?.nip || '';
   document.getElementById('form-nama').value = item?.nama || '';
   document.getElementById('form-email').value = item?.email || '';
   document.getElementById('form-jabatan').value = item?.jabatan || '';
@@ -1058,22 +1034,8 @@ async function openFormAnggota(mode, item = null) {
   document.getElementById('form-status').value = item?.statusAktif || 'Aktif';
 
   // NIP & email tidak bisa diubah saat edit (identitas)
-  nipInput.disabled = mode === 'edit';
+  document.getElementById('form-nip').disabled = mode === 'edit';
   document.getElementById('form-email').disabled = mode === 'edit';
-
-  // Auto-generate NIK berikutnya saat mode tambah
-  if (mode !== 'edit') {
-    nipInput.placeholder = 'Memuat NIK...';
-    nipInput.disabled = true;
-    try {
-      const nextNik = await graphService.getNextNik();
-      nipInput.value = nextNik;
-    } catch (err) {
-      nipInput.placeholder = 'Isi NIK manual';
-    } finally {
-      nipInput.disabled = false;
-    }
-  }
 
   modal.classList.remove('hidden');
   modal.classList.add('modal--show');
@@ -1283,7 +1245,7 @@ function bindEvents() {
 
   // NO.7 — Close rejected notif
   document.getElementById('btn-close-rejected-notif')?.addEventListener('click', closeRejectedNotif);
-  document.getElementById('btn-close-rejected-notif-ok')?.addEventListener('click', markAndCloseRejectedNotif);
+  document.getElementById('btn-close-rejected-notif-ok')?.addEventListener('click', closeRejectedNotif);
   document.getElementById('modal-rejected-notif')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeRejectedNotif(); });
 
   document.getElementById('btn-confirm-approval')?.addEventListener('click', confirmApproval);
