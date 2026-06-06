@@ -350,7 +350,8 @@ class GraphService {
       status: item.Status || 'Pending',
       emailAtasan: item.Email_Atasan || item.EmailAtasan || '',
       catatanUser: item.Catatan_User || item.CatatanUser || item.Catatan || '',
-      catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || ''
+      catatanAtasan: item.Catatan_Atasan || item.CatatanAtasan || '',
+      notifiedUser: item.Notified_User || ''
     };
   }
 
@@ -442,6 +443,14 @@ class GraphService {
     }
 
     return res.listItemId;
+  }
+
+  async markNotifiedUser(id) {
+    await this.updateListItem(APP_CONFIG.listPermohonanWfaId, id, {
+      Notified_User: 'true'
+    });
+    // Tidak perlu invalidate cache besar — cukup remove entry spesifik
+    cacheInvalidate(`list:${APP_CONFIG.listPermohonanWfaId}`);
   }
 
   async updateStatusPermohonanWfa(id, status, catatanAtasan = '') {

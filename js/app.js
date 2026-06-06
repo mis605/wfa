@@ -29,7 +29,8 @@ const state = {
   selectedDates: [],
   calendarAbsenList: [],
   calendarPendingList: [],
-  currentApprovalRequest: null
+  currentApprovalRequest: null,
+  pendingRejectedNotif: null   // NO.13 — buffer untuk update Notified_User setelah user klik Mengerti
 };
 
 // ============================================================
@@ -218,15 +219,14 @@ async function checkRejectedRequests() {
       .map(id => String(id));
 
     const newlyRejected = requests.filter(req =>
-      req.status === 'Rejected' && !alreadyNotified.includes(String(req.id))
+      req.status === 'Rejected' &&
+      req.notifiedUser !== 'true' &&        // kolom SharePoint belum di-set
+      !alreadyNotified.includes(String(req.id))  // fallback localStorage
     );
 
     if (newlyRejected.length > 0) {
-      // Tandai sebagai sudah dinotif — simpan sebagai String agar konsisten
-      const newNotified = [...alreadyNotified, ...newlyRejected.map(r => String(r.id))];
-      localStorage.setItem(notifiedKey, JSON.stringify(newNotified));
-
-      // Tampilkan notifikasi in-app
+      // Simpan ke state agar closeRejectedNotif bisa update SharePoint & localStorage
+      state.pendingRejectedNotif = { notifiedKey, alreadyNotified, items: newlyRejected };
       showRejectedNotification(newlyRejected);
     }
   } catch (err) {
@@ -261,6 +261,24 @@ function closeRejectedNotif() {
     modal.classList.remove('modal--show');
     setTimeout(() => modal.classList.add('hidden'), 300);
   }
+
+  // Update SharePoint Notified_User + localStorage saat user klik Mengerti / tutup
+  const pending = state.pendingRejectedNotif;
+  if (!pending) return;
+  state.pendingRejectedNotif = null;
+
+  const { notifiedKey, alreadyNotified, items } = pending;
+
+  // Tandai localStorage segera (offline-safe)
+  const newNotified = [...alreadyNotified, ...items.map(r => String(r.id))];
+  localStorage.setItem(notifiedKey, JSON.stringify(newNotified));
+
+  // Update kolom Notified_User di SharePoint untuk setiap item — fire and forget
+  items.forEach(req => {
+    graphService.markNotifiedUser(req.id).catch(err =>
+      console.warn(`Gagal update Notified_User untuk id ${req.id}:`, err.message)
+    );
+  });
 }
 
 // ============================================================
