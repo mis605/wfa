@@ -22,12 +22,14 @@ const APP_CONFIG = {
   listPermohonanWfaId: "d8137f93-ff19-4626-9ef5-4cb68bcf59c9",
 
   // --- PENGATURAN ABSENSI ---
-  jamMasukMulai: "07:00",   // Jam mulai bisa absen masuk
-  jamMasukSelesai: "10:00", // Jam batas absen masuk (lewat = terlambat)
-  jamKeluarMulai: "16:00",  // Jam mulai bisa absen keluar
-  jamKeluarSelesai: "20:00",// Jam batas absen keluar
+  // Absen masuk: FLEXIBLE — tidak ada batas jam mulai / selesai
+  // Absen keluar: minimal 9 jam setelah jam masuk
+  durasiKerjaJam: 9,        // Minimal durasi kerja (jam) sebelum bisa absen keluar
+  jamKeluarSelesai: "23:59",// Batas akhir absen keluar (keamanan: tidak melewati hari)
 
-  // Toleransi terlambat dalam menit
+  // Status absen: tetap dihitung dari pukul 08:00 sebagai acuan "Tepat Waktu"
+  jamAcuanTepat: "08:00",   // Absen masuk ≤ jam ini → Tepat Waktu
+  // Toleransi terlambat dalam menit (setelah jamAcuanTepat)
   toleransiTerlambat: 15,
 
   // Nama perusahaan

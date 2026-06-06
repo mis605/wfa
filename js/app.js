@@ -471,8 +471,8 @@ async function loadAbsen() {
 
   const infoMasuk = document.getElementById('info-jam-masuk');
   const infoKeluar = document.getElementById('info-jam-keluar');
-  if (infoMasuk) infoMasuk.textContent = `${APP_CONFIG.jamMasukMulai}–${APP_CONFIG.jamMasukSelesai}`;
-  if (infoKeluar) infoKeluar.textContent = `${APP_CONFIG.jamKeluarMulai}–${APP_CONFIG.jamKeluarSelesai}`;
+  if (infoMasuk) infoMasuk.textContent = 'Jam masuk fleksibel';
+  if (infoKeluar) infoKeluar.textContent = `Min. ${APP_CONFIG.durasiKerjaJam} jam setelah masuk`;
 
   // NO.6 — Cek apakah sudah absen hari ini, auto-detect tipe & tampilkan dashboard
   try {

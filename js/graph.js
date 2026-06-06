@@ -281,9 +281,7 @@ class GraphService {
   }
 
   async absenMasuk(data) {
-    if (!this.isWithinTimeRange(APP_CONFIG.jamMasukMulai, APP_CONFIG.jamMasukSelesai)) {
-      throw new Error(`Absen masuk hanya bisa dilakukan antara ${APP_CONFIG.jamMasukMulai} – ${APP_CONFIG.jamMasukSelesai}.`);
-    }
+    // Jam masuk flexible — tidak ada batas window waktu
     const existing = await this.getAbsensiHariIni(data.nip);
     if (existing) throw new Error('Anda sudah melakukan absen masuk hari ini.');
 
@@ -307,15 +305,24 @@ class GraphService {
   }
 
   async absenKeluar(data) {
-    if (!this.isWithinTimeRange(APP_CONFIG.jamKeluarMulai, APP_CONFIG.jamKeluarSelesai)) {
-      throw new Error(`Absen keluar hanya bisa dilakukan mulai pukul ${APP_CONFIG.jamKeluarMulai}.`);
-    }
     const existing = await this.getAbsensiHariIni(data.nip);
     if (!existing) throw new Error('Anda belum melakukan absen masuk hari ini.');
     if (existing.jamKeluar) throw new Error('Anda sudah melakukan absen keluar hari ini.');
 
+    // Validasi durasi: minimal 9 jam sejak jam masuk
     const now = new Date();
     const jamKeluar = now.toTimeString().substring(0, 8);
+    const [mh, mm] = existing.jamMasuk.split(':').map(Number);
+    const [kh, km] = jamKeluar.split(':').map(Number);
+    const durasiMenit = (kh * 60 + km) - (mh * 60 + mm);
+    const minimalMenit = APP_CONFIG.durasiKerjaJam * 60;
+    if (durasiMenit < minimalMenit) {
+      const sisaMenit = minimalMenit - durasiMenit;
+      const sisaJam = Math.floor(sisaMenit / 60);
+      const sisaMnt = sisaMenit % 60;
+      const sisaStr = sisaJam > 0 ? `${sisaJam} jam ${sisaMnt} menit` : `${sisaMnt} menit`;
+      throw new Error(`Belum bisa absen keluar. Sisa waktu: ${sisaStr} lagi (minimal ${APP_CONFIG.durasiKerjaJam} jam kerja).`);
+    }
     await this.updateListItem(APP_CONFIG.listAbsensiId, existing.id, {
       Jam_Keluar: jamKeluar,
       Keterangan: data.keterangan || existing.keterangan || ''
@@ -328,7 +335,7 @@ class GraphService {
   hitungStatus(jamMasuk) {
     const [h, m] = jamMasuk.split(':').map(Number);
     const menitMasuk = h * 60 + m;
-    const [bh, bm] = APP_CONFIG.jamMasukSelesai.split(':').map(Number);
+    const [bh, bm] = APP_CONFIG.jamAcuanTepat.split(':').map(Number);
     const batasMenit = bh * 60 + bm;
     if (menitMasuk <= batasMenit) return 'Tepat Waktu';
     if (menitMasuk <= batasMenit + APP_CONFIG.toleransiTerlambat) return 'Terlambat Ringan';
