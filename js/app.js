@@ -147,6 +147,12 @@ async function loadUserSession() {
 
     const photoUrl = await authService.getUserPhoto();
     const initials = getInitials(state.karyawan.nama);
+    // Isi info dropdown
+    const dropdownNama = document.getElementById('dropdown-nama');
+    const dropdownEmail = document.getElementById('dropdown-email');
+    if (dropdownNama) dropdownNama.textContent = state.karyawan.nama || '-';
+    if (dropdownEmail) dropdownEmail.textContent = state.user.mail || state.user.userPrincipalName || '-';
+
     document.querySelectorAll('.user-avatar, .greeting-avatar').forEach(el => {
       if (photoUrl) { el.style.backgroundImage = `url(${photoUrl})`; el.textContent = ''; }
       else { el.style.backgroundImage = 'none'; el.textContent = initials; }
@@ -924,6 +930,230 @@ function cancelApproval() {
 // ============================================================
 // BIND EVENTS
 // ============================================================
+
+// ============================================================
+// KELOLA TIM — Modal manajemen anggota tim atasan
+// ============================================================
+let _timState = {
+  list: [],          // [{id, nip, nama, email, jabatan, departemen, statusAktif}]
+  editTarget: null,  // item sedang diedit
+  hapusTarget: null  // item sedang dihapus
+};
+
+async function openTimModal() {
+  const modal = document.getElementById('modal-tim');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('modal--show');
+
+  document.getElementById('tim-loading').classList.remove('hidden');
+  document.getElementById('tim-content').classList.add('hidden');
+
+  try {
+    const myEmail = (state.karyawan.email || '').toLowerCase().trim();
+    const allKaryawan = await graphService.getAllKaryawan();
+
+    // Anggota tim = karyawan yang emailAtasan-nya adalah email user login
+    _timState.list = allKaryawan.filter(k =>
+      (k.emailAtasan || '').toLowerCase().trim() === myEmail
+    );
+
+    renderTimList();
+    document.getElementById('tim-loading').classList.add('hidden');
+    document.getElementById('tim-content').classList.remove('hidden');
+  } catch (err) {
+    showToast('Gagal memuat tim: ' + err.message, 'error');
+    closeTimModal();
+  }
+}
+
+function closeTimModal() {
+  const modal = document.getElementById('modal-tim');
+  if (modal) { modal.classList.remove('modal--show'); setTimeout(() => modal.classList.add('hidden'), 300); }
+}
+
+function renderTimList() {
+  const container = document.getElementById('tim-list');
+  if (!container) return;
+
+  if (_timState.list.length === 0) {
+    container.innerHTML = '<div class="tim-empty">Belum ada anggota tim yang terdaftar dengan Anda sebagai atasan.</div>';
+    return;
+  }
+
+  container.innerHTML = _timState.list.map(k => {
+    const initials = k.nama.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+    const isAktif = k.statusAktif === 'Aktif';
+    const avatarClass = isAktif ? 'tim-item__avatar' : 'tim-item__avatar tim-item__avatar--inactive';
+    return `
+      <div class="tim-item" data-id="${k.id}">
+        <div class="${avatarClass}">${initials}</div>
+        <div class="tim-item__info">
+          <div class="tim-item__name">${k.nama}${!isAktif ? ' <span style="font-size:0.68rem;color:var(--text-muted);">(Nonaktif)</span>' : ''}</div>
+          <div class="tim-item__meta">${k.jabatan || '-'} · ${k.departemen || '-'}</div>
+          <div class="tim-item__meta" style="font-family:var(--font-mono);font-size:0.68rem;">${k.email}</div>
+        </div>
+        <div class="tim-item__actions">
+          <button class="btn-tim-edit" data-id="${k.id}" title="Edit">✏️</button>
+          <button class="btn-tim-hapus" data-id="${k.id}" title="Hapus">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  container.querySelectorAll('.btn-tim-edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = _timState.list.find(k => String(k.id) === String(btn.dataset.id));
+      if (item) openFormAnggota('edit', item);
+    });
+  });
+
+  container.querySelectorAll('.btn-tim-hapus').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = _timState.list.find(k => String(k.id) === String(btn.dataset.id));
+      if (item) openHapusAnggota(item);
+    });
+  });
+}
+
+function openFormAnggota(mode, item = null) {
+  _timState.editTarget = item;
+  const modal = document.getElementById('modal-form-anggota');
+  const title = document.getElementById('form-anggota-title');
+  const errEl = document.getElementById('form-anggota-error');
+
+  title.textContent = mode === 'edit' ? 'Edit Anggota Tim' : 'Tambah Anggota Tim';
+  errEl.classList.add('hidden');
+
+  document.getElementById('form-nip').value = item?.nip || '';
+  document.getElementById('form-nama').value = item?.nama || '';
+  document.getElementById('form-email').value = item?.email || '';
+  document.getElementById('form-jabatan').value = item?.jabatan || '';
+  document.getElementById('form-departemen').value = item?.departemen || '';
+  document.getElementById('form-status').value = item?.statusAktif || 'Aktif';
+
+  // NIP & email tidak bisa diubah saat edit (identitas)
+  document.getElementById('form-nip').disabled = mode === 'edit';
+  document.getElementById('form-email').disabled = mode === 'edit';
+
+  modal.classList.remove('hidden');
+  modal.classList.add('modal--show');
+}
+
+function closeFormAnggota() {
+  const modal = document.getElementById('modal-form-anggota');
+  if (modal) { modal.classList.remove('modal--show'); setTimeout(() => modal.classList.add('hidden'), 300); }
+  _timState.editTarget = null;
+}
+
+async function simpanAnggota() {
+  const btn = document.getElementById('btn-simpan-anggota');
+  const errEl = document.getElementById('form-anggota-error');
+  errEl.classList.add('hidden');
+
+  const nip = document.getElementById('form-nip').value.trim();
+  const nama = document.getElementById('form-nama').value.trim();
+  const email = document.getElementById('form-email').value.trim().toLowerCase();
+  const jabatan = document.getElementById('form-jabatan').value.trim();
+  const departemen = document.getElementById('form-departemen').value.trim();
+  const statusAktif = document.getElementById('form-status').value;
+
+  if (!nip || !nama || !email) {
+    errEl.textContent = 'NIP, Nama, dan Email wajib diisi.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  if (!email.includes('@')) {
+    errEl.textContent = 'Format email tidak valid.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  setLoading(btn, true);
+
+  try {
+    const myEmail = state.karyawan.email || state.user.mail || state.user.userPrincipalName;
+
+    if (_timState.editTarget) {
+      // MODE EDIT
+      await graphService.updateKaryawan(_timState.editTarget.id, {
+        nama, jabatan, departemen, statusAktif,
+        emailAtasan: myEmail
+      });
+      showToast(`✓ Data ${nama} berhasil diperbarui.`, 'success');
+    } else {
+      // MODE TAMBAH — cek duplikasi NIP/email dulu
+      const existing = await graphService.getAllKaryawan();
+      const dupNip = existing.find(k => String(k.nip) === String(nip));
+      const dupEmail = existing.find(k => k.email?.toLowerCase() === email);
+
+      if (dupNip) {
+        errEl.textContent = `NIP ${nip} sudah terdaftar (${dupNip.nama}).`;
+        errEl.classList.remove('hidden');
+        setLoading(btn, false, 'Simpan');
+        return;
+      }
+      if (dupEmail) {
+        errEl.textContent = `Email ${email} sudah terdaftar (${dupEmail.nama}).`;
+        errEl.classList.remove('hidden');
+        setLoading(btn, false, 'Simpan');
+        return;
+      }
+
+      await graphService.tambahKaryawan({
+        nip, nama, email, jabatan, departemen,
+        statusAktif,
+        emailAtasan: myEmail
+      });
+      showToast(`✓ ${nama} berhasil ditambahkan ke tim.`, 'success');
+    }
+
+    closeFormAnggota();
+    await openTimModal(); // refresh list
+
+  } catch (err) {
+    errEl.textContent = 'Gagal menyimpan: ' + err.message;
+    errEl.classList.remove('hidden');
+  } finally {
+    setLoading(btn, false, 'Simpan');
+  }
+}
+
+function openHapusAnggota(item) {
+  _timState.hapusTarget = item;
+  document.getElementById('hapus-nama-target').textContent = item.nama;
+  const modal = document.getElementById('modal-hapus-anggota');
+  modal.classList.remove('hidden');
+  modal.classList.add('modal--show');
+}
+
+function closeHapusAnggota() {
+  const modal = document.getElementById('modal-hapus-anggota');
+  if (modal) { modal.classList.remove('modal--show'); setTimeout(() => modal.classList.add('hidden'), 300); }
+  _timState.hapusTarget = null;
+}
+
+async function konfirmasiHapusAnggota() {
+  const item = _timState.hapusTarget;
+  if (!item) return;
+
+  const btn = document.getElementById('btn-konfirmasi-hapus');
+  setLoading(btn, true);
+
+  try {
+    await graphService.updateKaryawan(item.id, { statusAktif: 'Tidak Aktif' });
+    showToast(`${item.nama} dinonaktifkan dari daftar karyawan.`, 'success');
+    closeHapusAnggota();
+    await openTimModal(); // refresh
+  } catch (err) {
+    showToast('Gagal menghapus: ' + err.message, 'error');
+  } finally {
+    setLoading(btn, false, 'Ya, Hapus');
+  }
+}
+
 function bindEvents() {
   document.getElementById('btn-login')?.addEventListener('click', async () => {
     const btn = document.getElementById('btn-login');
@@ -937,9 +1167,25 @@ function bindEvents() {
     }
   });
 
-  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+  // Dropdown toggle — klik avatar buka/tutup menu
+  document.getElementById('topbar-avatar')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('user-dropdown')?.classList.toggle('hidden');
+  });
+
+  // Tutup dropdown saat klik di luar
+  document.addEventListener('click', () => {
+    document.getElementById('user-dropdown')?.classList.add('hidden');
+  });
+
+  document.getElementById('btn-menu-logout')?.addEventListener('click', async () => {
     await authService.logout();
     window.location.reload();
+  });
+
+  document.getElementById('btn-menu-tim')?.addEventListener('click', () => {
+    document.getElementById('user-dropdown')?.classList.add('hidden');
+    openTimModal();
   });
 
   document.querySelectorAll('[data-nav]').forEach(el => {
@@ -1004,6 +1250,20 @@ function bindEvents() {
 
   document.getElementById('btn-confirm-approval')?.addEventListener('click', confirmApproval);
   document.getElementById('btn-cancel-approval')?.addEventListener('click', cancelApproval);
+
+  // ---- KELOLA TIM ----
+  document.getElementById('btn-close-tim')?.addEventListener('click', closeTimModal);
+  document.getElementById('modal-tim')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeTimModal(); });
+
+  document.getElementById('btn-tambah-anggota')?.addEventListener('click', () => openFormAnggota('tambah'));
+
+  document.getElementById('btn-close-form-anggota')?.addEventListener('click', closeFormAnggota);
+  document.getElementById('modal-form-anggota')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeFormAnggota(); });
+  document.getElementById('btn-simpan-anggota')?.addEventListener('click', simpanAnggota);
+
+  document.getElementById('btn-batal-hapus')?.addEventListener('click', closeHapusAnggota);
+  document.getElementById('modal-hapus-anggota')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeHapusAnggota(); });
+  document.getElementById('btn-konfirmasi-hapus')?.addEventListener('click', konfirmasiHapusAnggota);
 }
 
 // ============================================================

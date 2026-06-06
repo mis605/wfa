@@ -83,7 +83,7 @@ class GraphService {
 
     const url = `${this.getSharePointBase()}/lists/${listId}/items?expand=fields&$top=5000`;
     const data = await this.apiFetch(url);
-    const items = data?.value?.map(item => ({ listItemId: item.id, ...item.fields })) || [];
+    const items = data?.value?.map(item => ({ ...item.fields, listItemId: item.id })) || [];
     return cacheSet(key, items);
   }
 
@@ -101,7 +101,7 @@ class GraphService {
       return this.getListItems(listId, cacheKey);
     }
 
-    const items = data?.value?.map(item => ({ listItemId: item.id, ...item.fields })) || [];
+    const items = data?.value?.map(item => ({ ...item.fields, listItemId: item.id })) || [];
     return cacheSet(cacheKey, items);
   }
 
@@ -368,7 +368,7 @@ class GraphService {
     try {
       const data = await this.apiFetch(url);
       if (!data) return null;
-      return this._mapPermohonanItem({ listItemId: data.id, ...data.fields });
+      return this._mapPermohonanItem({ ...data.fields, listItemId: data.id });
     } catch {
       // Fallback ke full list
       const items = await this.getListItems(APP_CONFIG.listPermohonanWfaId);
