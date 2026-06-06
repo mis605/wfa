@@ -205,16 +205,18 @@ async function checkRejectedRequests() {
     const requests = await graphService.getPermohonanWfa(userEmail);
 
     // Ambil key dari localStorage untuk track request yang sudah dinotif
+    // Semua ID dikonversi ke String untuk menghindari type mismatch (number vs string)
     const notifiedKey = `notified_rejected_${state.karyawan.nip}`;
-    const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');
+    const alreadyNotified = JSON.parse(localStorage.getItem(notifiedKey) || '[]')
+      .map(id => String(id));
 
     const newlyRejected = requests.filter(req =>
-      req.status === 'Rejected' && !alreadyNotified.includes(req.id)
+      req.status === 'Rejected' && !alreadyNotified.includes(String(req.id))
     );
 
     if (newlyRejected.length > 0) {
-      // Tandai sebagai sudah dinotif
-      const newNotified = [...alreadyNotified, ...newlyRejected.map(r => r.id)];
+      // Tandai sebagai sudah dinotif — simpan sebagai String agar konsisten
+      const newNotified = [...alreadyNotified, ...newlyRejected.map(r => String(r.id))];
       localStorage.setItem(notifiedKey, JSON.stringify(newNotified));
 
       // Tampilkan notifikasi in-app
