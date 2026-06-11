@@ -294,8 +294,8 @@ class GraphService {
       Title: data.nip, Nama: data.nama, Tanggal: tanggal,
       Jam_Masuk: jamMasuk, Jam_Keluar: '', Status: status,
       Tipe: data.tipe || 'WFO',
-      Email_Atasan: data.emailAtasan || '',
       Keterangan: data.keterangan || ''
+      // Email_Atasan tidak dikirim — diambil dari list Karyawan via buildNipAtasanMap()
     };
 
     const res = await this.addListItem(APP_CONFIG.listAbsensiId, fields);
