@@ -45,6 +45,8 @@ const APP_CONFIG = {
   // Tambah email lain jika perlu (HRD, direktur, dll)
   calendarSuperuserEmails: [
     "mis@gos.co.id",
+    "anom@gos.co.id",
+    "farhansyah@gos.co.id",
   ],
 };
 
