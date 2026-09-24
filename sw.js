@@ -2,7 +2,7 @@
 // SW.JS - Service Worker (PWA)
 // ============================================================
 
-const CACHE_NAME = 'absen-wfa-v2.7';
+const CACHE_NAME = 'absen-wfa-v2.8';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -51,7 +51,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: Network-first untuk API, Cache-first untuk static
+// Fetch: Network-first untuk API & Asset lokal (agar update langsung tampil), Cache fallback saat offline
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
@@ -63,30 +63,33 @@ self.addEventListener('fetch', (event) => {
     return; // Biarkan network langsung
   }
   
-  // Untuk asset lokal: Cache-first dengan network fallback
-  if (url.origin === location.origin || 
-      url.hostname === 'fonts.googleapis.com' ||
-      url.hostname === 'fonts.gstatic.com') {
+  // Untuk asset lokal: Network-first dengan cache fallback agar update selalu diterima saat online
+  if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(event.request)
-        .then(cached => {
-          if (cached) return cached;
-          return fetch(event.request)
-            .then(response => {
-              if (response && response.status === 200) {
-                const cloned = response.clone();
-                caches.open(CACHE_NAME)
-                  .then(cache => cache.put(event.request, cloned));
-              }
-              return response;
-            })
-            .catch(() => {
-              // Offline fallback untuk navigasi
-              if (event.request.mode === 'navigate') {
-                return caches.match('/index.html');
-              }
-            });
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+          }
+          return response;
         })
+        .catch(() => {
+          return caches.match(event.request).then(cached => {
+            if (cached) return cached;
+            if (event.request.mode === 'navigate') {
+              return caches.match('./index.html');
+            }
+          });
+        })
+    );
+    return;
+  }
+
+  // Google Fonts: Cache-first
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    event.respondWith(
+      caches.match(event.request).then(cached => cached || fetch(event.request))
     );
     return;
   }

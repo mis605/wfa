@@ -386,8 +386,20 @@ function renderCalendarGrid(month, year) {
     // Helper format nama pendek (panggilan) untuk sel kalender
     const getShortName = (fullName) => {
       if (!fullName) return '-';
-      const first = fullName.trim().split(/\s+/)[0] || '';
-      return first.length > 8 ? first.substring(0, 7) + '…' : first;
+      const clean = fullName.trim();
+      const parts = clean.split(/\s+/);
+      if (parts.length === 1) {
+        return parts[0].length > 7 ? parts[0].substring(0, 6) + '…' : parts[0];
+      }
+      const first = parts[0].toLowerCase();
+      // Handle awalan umum seperti Muhammad, Moch, M
+      if (['muhammad', 'mochammad', 'moch', 'mohammad', 'muh'].includes(first)) {
+        const second = parts[1];
+        return `M. ${second.length > 5 ? second.substring(0, 5) + '…' : second}`;
+      }
+      // Format standar: Nama Depan (max 6-7 char)
+      const firstName = parts[0];
+      return firstName.length > 7 ? firstName.substring(0, 6) + '…' : firstName;
     };
 
     const entries = [
