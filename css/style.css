@@ -114,6 +114,46 @@ body {
 
 .topbar__logo span { color: var(--accent); }
 
+.topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.topbar-nav {
+  display: none;
+}
+
+.topbar-nav__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.topbar-nav__item:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+
+.topbar-nav__item--active,
+.topbar-nav__item.nav__item--active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: rgba(79, 142, 247, 0.35);
+  box-shadow: 0 0 16px rgba(79, 142, 247, 0.15);
+}
+
 .topbar__actions {
   display: flex;
   align-items: center;
@@ -388,6 +428,7 @@ body {
   align-items: center;
   gap: 14px;
   margin-bottom: 14px;
+  min-width: 0;
 }
 
 .greeting-avatar {
@@ -407,15 +448,28 @@ body {
   flex-shrink: 0;
 }
 
+.greeting-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .greeting-info h2 {
   font-size: 1.05rem;
   font-weight: 700;
   margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .greeting-info p {
   font-size: 0.78rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .live-clock {
@@ -857,20 +911,46 @@ body {
 /* Calendar entry badges (WFO/WFA/Visit/Pending) */
 .calendar-entry {
   font-size: 0.58rem;
-  padding: 1px 3px;
-  border-radius: 3px;
+  padding: 1.5px 4px;
+  border-radius: 4px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
   display: block;
+  letter-spacing: -0.01em;
+  transition: transform 0.1s ease;
 }
 
-.calendar-entry--wfo    { background: var(--green-dim); color: var(--green); }
-.calendar-entry--wfa    { background: var(--accent-dim); color: var(--accent); }
-.calendar-entry--visit  { background: var(--orange-dim); color: var(--orange); }
-.calendar-entry--pending { background: var(--yellow-dim); color: var(--yellow); font-style: italic; }
+.calendar-entry:hover {
+  transform: scale(1.02);
+}
+
+.calendar-entry--wfo    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(45,204,143,0.25); }
+.calendar-entry--wfa    { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(79,142,247,0.25); }
+.calendar-entry--visit  { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(249,115,22,0.25); }
+.calendar-entry--pending { background: var(--yellow-dim); color: var(--yellow); font-style: italic; border: 1px solid rgba(240,180,41,0.25); }
+
+.calendar-more-badge {
+  font-size: 0.56rem;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  background: rgba(139, 145, 168, 0.15);
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-subtle);
+  text-align: center;
+  display: block;
+  cursor: pointer;
+  margin-top: 1px;
+}
+
+.calendar-more-badge:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 /* Calendar detail modal items */
 .detail-group-label {
@@ -1107,6 +1187,15 @@ body {
   font-size: 0.88rem;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 8px;
+  gap: 12px;
+}
+
+.detail-row strong,
+.detail-row span:not(.detail-lbl) {
+  text-align: right;
+  word-break: break-word;
+  max-width: 65%;
+  min-width: 0;
 }
 
 .detail-row:last-child {
@@ -1117,6 +1206,7 @@ body {
 .detail-lbl {
   color: var(--text-secondary);
   font-size: 0.8rem;
+  flex-shrink: 0;
 }
 
 .app-dates-list {
@@ -1400,7 +1490,17 @@ body {
     box-shadow: var(--shadow-lg);
     margin: 0 auto;
   }
-  .bottom-nav { max-width: 1024px; }
+  .topbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bottom-nav {
+    display: none !important;
+  }
+  .main-content {
+    padding-bottom: 32px;
+  }
 
   #view-absen {
     display: grid;
@@ -1411,15 +1511,15 @@ body {
   #view-absen .greeting-card { grid-column: 1 / -1; }
   #view-absen .tipe-card { grid-column: 1 / -1; }
   #view-absen #wfa-status-card { grid-column: 1 / -1; }
-  #view-absen #absen-dashboard-content {
+  #view-absen #absen-dashboard-content:not(.hidden) {
     grid-column: 1 / -1;
-    display: grid !important;
+    display: grid;
     grid-template-columns: 1fr 1.2fr;
     gap: 20px;
     align-items: start;
   }
-  #view-absen #absen-dashboard-content > :nth-child(1) { grid-column: 1; margin-bottom: 0; }
-  #view-absen #absen-dashboard-content > :nth-child(2) { grid-column: 2; margin-bottom: 0; }
+  #view-absen #absen-dashboard-content:not(.hidden) > :nth-child(1) { grid-column: 1; margin-bottom: 0; }
+  #view-absen #absen-dashboard-content:not(.hidden) > :nth-child(2) { grid-column: 2; margin-bottom: 0; }
 
   #view-request {
     display: grid;

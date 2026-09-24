@@ -68,7 +68,23 @@
     
     <!-- Top Bar -->
     <header class="topbar">
-      <span class="topbar__logo">Attend<span>HQ</span></span>
+      <div class="topbar__brand">
+        <span class="topbar__logo">Attend<span>HQ</span></span>
+        <nav class="topbar-nav" id="topbar-nav" aria-label="Navigasi Desktop">
+          <button class="topbar-nav__item topbar-nav__item--active" data-nav="calendar">
+            <span class="topbar-nav__icon">📅</span>
+            <span>Kalender</span>
+          </button>
+          <button class="topbar-nav__item" data-nav="absen">
+            <span class="topbar-nav__icon">🕒</span>
+            <span>Absen</span>
+          </button>
+          <button class="topbar-nav__item" data-nav="request">
+            <span class="topbar-nav__icon">✍️</span>
+            <span>Request</span>
+          </button>
+        </nav>
+      </div>
       <div class="topbar__actions">
         <div class="user-menu-wrap" id="user-menu-wrap">
           <div class="user-avatar" id="topbar-avatar" title="Profil saya"></div>

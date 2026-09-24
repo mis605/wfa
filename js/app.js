@@ -61,6 +61,7 @@ function showView(viewName) {
   state.currentView = viewName;
   document.querySelectorAll('[data-nav]').forEach(el => {
     el.classList.toggle('nav__item--active', el.dataset.nav === viewName);
+    el.classList.toggle('topbar-nav__item--active', el.dataset.nav === viewName);
   });
 }
 
@@ -170,8 +171,20 @@ async function loadUserSession() {
     if (action && requestId) {
       await loadApprovalRequest(requestId, action);
     } else {
-      showView('calendar');
-      await loadCalendar();
+      // Default view: jika belum absen masuk hari ini -> Tab Absen, jika sudah -> Kalender
+      try {
+        const absenHariIni = await graphService.getAbsensiHariIni(state.karyawan.nip);
+        if (!absenHariIni || !absenHariIni.jamMasuk) {
+          showView('absen');
+          await loadAbsen();
+        } else {
+          showView('calendar');
+          await loadCalendar();
+        }
+      } catch (e) {
+        showView('calendar');
+        await loadCalendar();
+      }
     }
 
   } catch (err) {
@@ -370,19 +383,31 @@ function renderCalendarGrid(month, year) {
     const pendingOnDay = state.calendarPendingList.filter(item => item.tanggal === currentDayStr);
     const isToday = currentDayStr === todayStr;
 
-    const absenHtml = absenOnDay.map(w => {
-      const tipeClass = (w.tipe || 'WFO').toLowerCase();
-      return `<span class="calendar-entry calendar-entry--${tipeClass}" title="${w.nama} - ${w.tipe||'WFO'}">${w.nama}</span>`;
-    }).join('');
+    // Helper format nama pendek (panggilan) untuk sel kalender
+    const getShortName = (fullName) => {
+      if (!fullName) return '-';
+      const first = fullName.trim().split(/\s+/)[0] || '';
+      return first.length > 8 ? first.substring(0, 7) + '…' : first;
+    };
 
-    const pendingHtml = pendingOnDay.map(w =>
-      `<span class="calendar-entry calendar-entry--pending" title="${w.nama} - Belum Absen (${w.tipe})">${w.nama}*</span>`
-    ).join('');
+    const entries = [
+      ...absenOnDay.map(w => ({
+        html: `<span class="calendar-entry calendar-entry--${(w.tipe || 'WFO').toLowerCase()}" title="${w.nama} - ${w.tipe||'WFO'}">${getShortName(w.nama)}</span>`
+      })),
+      ...pendingOnDay.map(w => ({
+        html: `<span class="calendar-entry calendar-entry--pending" title="${w.nama} - Belum Absen (${w.tipe})">${getShortName(w.nama)}*</span>`
+      }))
+    ];
+
+    const maxVisible = 2;
+    const visibleEntries = entries.slice(0, maxVisible).map(e => e.html).join('');
+    const remaining = entries.length - maxVisible;
+    const moreHtml = remaining > 0 ? `<span class="calendar-more-badge">+${remaining} lagi</span>` : '';
 
     cellsHtml += `
-      <div class="calendar-day-cell ${isToday ? 'calendar-day-cell--today' : ''}" data-date="${currentDayStr}" style="cursor:pointer;">
+      <div class="calendar-day-cell ${isToday ? 'calendar-day-cell--today' : ''}" data-date="${currentDayStr}" style="cursor:pointer;" title="Klik untuk lihat rincian ${day} ${month}/${year}">
         <span class="calendar-day-number">${day}</span>
-        <div class="calendar-wfa-list">${absenHtml}${pendingHtml}</div>
+        <div class="calendar-wfa-list">${visibleEntries}${moreHtml}</div>
       </div>`;
   }
 
@@ -464,17 +489,26 @@ function closeCalendarDetailModal() {
 // NO.6 — Auto-detect status absen hari ini tanpa perlu pilih radio dulu
 // ============================================================
 async function loadAbsen() {
-  document.getElementById('dash-nama').textContent = state.karyawan.nama;
-  document.getElementById('dash-jabatan').textContent = `${state.karyawan.jabatan} • ${state.karyawan.departemen}`;
+  const dashNama = document.getElementById('dash-nama');
+  const dashJabatan = document.getElementById('dash-jabatan');
+  if (dashNama) {
+    dashNama.textContent = state.karyawan.nama;
+    dashNama.title = state.karyawan.nama;
+  }
+  if (dashJabatan) {
+    const jabatanText = `${state.karyawan.jabatan} • ${state.karyawan.departemen}`;
+    dashJabatan.textContent = jabatanText;
+    dashJabatan.title = jabatanText;
+  }
   document.getElementById('dash-tanggal').textContent = formatTanggal(new Date().toISOString());
   updateClock();
 
   const infoMasuk = document.getElementById('info-jam-masuk');
   const infoKeluar = document.getElementById('info-jam-keluar');
   if (infoMasuk) infoMasuk.textContent = 'Jam masuk fleksibel';
-  if (infoKeluar) infoKeluar.textContent = `Min. ${APP_CONFIG.durasiKerjaJam} jam setelah masuk`;
+  if (infoKeluar) infoKeluar.textContent = `Min. ${APP_CONFIG.durasiKerjaJam || 8} jam kerja`;
 
-  // NO.6 — Cek apakah sudah absen hari ini, auto-detect tipe & tampilkan dashboard
+  // Cek apakah sudah absen hari ini
   try {
     const absenHariIni = await graphService.getAbsensiHariIni(state.karyawan.nip);
 
@@ -483,7 +517,6 @@ async function loadAbsen() {
       state.absensiHariIni = absenHariIni;
       state.tipeAbsenDipilih = absenHariIni.tipe || 'WFO';
 
-      // Centang radio sesuai tipe
       const radioId = { WFO: 'radio-wfo', WFA: 'radio-wfa', Visit: 'radio-visit' }[state.tipeAbsenDipilih];
       if (radioId) {
         const radioEl = document.getElementById(radioId);
@@ -503,8 +536,36 @@ async function loadAbsen() {
     console.warn('Auto-detect absen gagal:', err.message);
   }
 
-  // Belum absen — reset ke state awal
-  resetAbsenUI();
+  // Belum absen — auto-select tipe jadwal hari ini secara otomatis (WFA/Visit/WFO)
+  try {
+    const todayStr = getTodayString();
+    const userEmail = state.user?.mail || state.user?.userPrincipalName || '';
+    let autoTipe = 'WFO';
+
+    if (userEmail) {
+      const requests = await graphService.getPermohonanWfa(userEmail);
+      const approvedToday = (requests || []).find(req => {
+        if (req.status !== 'Approved') return false;
+        const dates = req.tanggalWfa ? req.tanggalWfa.split(',').map(d => d.trim()) : [];
+        return dates.includes(todayStr);
+      });
+      if (approvedToday) {
+        autoTipe = approvedToday.tipe || 'WFA';
+      }
+    }
+
+    const radioId = { WFO: 'radio-wfo', WFA: 'radio-wfa', Visit: 'radio-visit' }[autoTipe];
+    if (radioId) {
+      const radioEl = document.getElementById(radioId);
+      if (radioEl) radioEl.checked = true;
+    }
+    await onTipeAbsenChange(autoTipe);
+  } catch (err) {
+    console.warn('Auto-select jadwal hari ini gagal:', err.message);
+    const radioWfo = document.getElementById('radio-wfo');
+    if (radioWfo) radioWfo.checked = true;
+    await onTipeAbsenChange('WFO');
+  }
 }
 
 function resetAbsenUI() {
@@ -597,6 +658,7 @@ function renderAbsenDashboard() {
   const durasiEl = document.getElementById('dash-durasi');
   const btnMasuk = document.getElementById('btn-absen-masuk');
   const btnKeluar = document.getElementById('btn-absen-keluar');
+  const infoKeluar = document.getElementById('info-jam-keluar');
 
   if (!a) {
     statusEl.textContent = 'Belum Absen';
@@ -604,6 +666,7 @@ function renderAbsenDashboard() {
     masukEl.textContent = '--:--'; keluarEl.textContent = '--:--'; durasiEl.textContent = '--';
     btnMasuk.disabled = false; btnMasuk.classList.remove('btn--disabled');
     btnKeluar.disabled = true; btnKeluar.classList.add('btn--disabled');
+    if (infoKeluar) infoKeluar.textContent = `Min. ${APP_CONFIG.durasiKerjaJam || 8} jam kerja`;
   } else {
     const isClockedOut = !!a.jamKeluar;
     statusEl.textContent = isClockedOut ? 'Selesai' : a.status;
@@ -615,9 +678,32 @@ function renderAbsenDashboard() {
     if (!isClockedOut) {
       btnMasuk.disabled = true; btnMasuk.classList.add('btn--disabled');
       btnKeluar.disabled = false; btnKeluar.classList.remove('btn--disabled');
+
+      // Countdown / Jam keluar feedback
+      if (a.jamMasuk && infoKeluar) {
+        const parts = a.jamMasuk.split(':');
+        if (parts.length >= 2) {
+          const jamMasukDate = new Date();
+          jamMasukDate.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+          const durasiMs = (APP_CONFIG.durasiKerjaJam || 8) * 60 * 60 * 1000;
+          const targetKeluarDate = new Date(jamMasukDate.getTime() + durasiMs);
+          const targetStr = targetKeluarDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+          const diffMinutes = Math.round((targetKeluarDate - new Date()) / (60 * 1000));
+
+          if (diffMinutes > 0) {
+            const h = Math.floor(diffMinutes / 60);
+            const m = diffMinutes % 60;
+            const diffStr = h > 0 ? `${h}j ${m}m lagi` : `${m}m lagi`;
+            infoKeluar.textContent = `Bisa keluar pukul ${targetStr} (${diffStr})`;
+          } else {
+            infoKeluar.textContent = `🟢 Jam kerja terpenuhi (${targetStr})`;
+          }
+        }
+      }
     } else {
       btnMasuk.disabled = true; btnMasuk.classList.add('btn--disabled');
       btnKeluar.disabled = true; btnKeluar.classList.add('btn--disabled');
+      if (infoKeluar) infoKeluar.textContent = `Absen keluar: ${formatJam(a.jamKeluar)}`;
     }
   }
 }
@@ -1008,9 +1094,9 @@ function renderTimList() {
       <div class="tim-item" data-id="${k.id}">
         <div class="${avatarClass}">${initials}</div>
         <div class="tim-item__info">
-          <div class="tim-item__name">${k.nama}${!isAktif ? ' <span style="font-size:0.68rem;color:var(--text-muted);">(Nonaktif)</span>' : ''}</div>
-          <div class="tim-item__meta">${k.jabatan || '-'} · ${k.departemen || '-'}</div>
-          <div class="tim-item__meta" style="font-family:var(--font-mono);font-size:0.68rem;">${k.email}</div>
+          <div class="tim-item__name" title="${k.nama}">${k.nama}${!isAktif ? ' <span style="font-size:0.68rem;color:var(--text-muted);">(Nonaktif)</span>' : ''}</div>
+          <div class="tim-item__meta" title="${k.jabatan || ''} · ${k.departemen || ''}">${k.jabatan || '-'} · ${k.departemen || '-'}</div>
+          <div class="tim-item__meta" title="${k.email}" style="font-family:var(--font-mono);font-size:0.68rem;">${k.email}</div>
         </div>
         <div class="tim-item__actions">
           <button class="btn-tim-edit" data-id="${k.id}" title="Edit">✏️</button>
