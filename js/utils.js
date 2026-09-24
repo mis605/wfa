@@ -38,18 +38,6 @@ function hitungDurasi(jamMasuk, jamKeluar) {
   return `${jam}j ${menit}m`;
 }
 
-function generateUID() {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
-}
-
-function debounce(fn, delay) {
-  let timeout;
-  return (...args) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => fn(...args), delay);
-  };
-}
-
 function showToast(message, type = 'info', duration = 3500) {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -93,25 +81,10 @@ function setLoading(element, loading, originalText = '') {
 }
 
 function getTodayString() {
-  // Gunakan waktu lokal device (bukan UTC) agar tidak salah tanggal di WIB (UTC+7)
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function getMonthYear() {
-  const now = new Date();
-  return {
-    bulan: now.getMonth() + 1,
-    tahun: now.getFullYear(),
-    label: now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
-  };
+  return new Date().toLocaleDateString('en-CA');
 }
 
 export {
   formatTanggal, formatJam, formatTanggalPendek,
-  hitungDurasi, generateUID, debounce,
-  showToast, setLoading, getTodayString, getMonthYear
+  hitungDurasi, showToast, setLoading, getTodayString
 };

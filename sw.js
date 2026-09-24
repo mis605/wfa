@@ -108,15 +108,3 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
-
-// Background Sync untuk absen offline (opsional, future feature)
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-absensi') {
-    event.waitUntil(syncPendingAbsensi());
-  }
-});
-
-async function syncPendingAbsensi() {
-  // TODO: implementasi sync offline queue
-  console.log('SW: Syncing pending absensi...');
-}

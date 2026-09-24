@@ -247,20 +247,6 @@ class GraphService {
     return found ? this._mapAbsensiItem(found) : null;
   }
 
-  async getAbsensiBulanTertentu(nip, bulan, tahun) {
-    const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;
-    const { firstDay, lastDay } = this._getMonthRange(bulan, tahun);
-    const cacheKey = `list:${APP_CONFIG.listAbsensiId}:bulan:${prefix}`;
-    const items = await this.getListItemsFiltered(
-      APP_CONFIG.listAbsensiId,
-      `fields/Tanggal ge '${firstDay}' and fields/Tanggal le '${lastDay}'`,
-      cacheKey
-    );
-    return items
-      .filter(item => String(item.NIP || item.Nip || item.NRK || item.Title) === String(nip))
-      .map(item => this._mapAbsensiItem(item));
-  }
-
   // Semua absensi bulan tertentu untuk kalender — join emailAtasan dari list karyawan
   async getAbsensiBulanTertentu_All(bulan, tahun) {
     const prefix = `${tahun}-${String(bulan).padStart(2,'0')}`;

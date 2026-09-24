@@ -34,7 +34,6 @@ const APP_CONFIG = {
 
   // Nama perusahaan
   namaPerusahaan: "PT. GOS INDORAYA",
-  logoPerusahaan: "", // URL logo (opsional)
 
   // --- EMAIL NOTIFICATION CONFIG ---
   emailHrd: "hc.info@gos.co.id",

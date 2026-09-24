@@ -11,7 +11,7 @@ import authService from './auth.js';
 import graphService from './graph.js';
 import {
   formatTanggal, formatJam, formatTanggalPendek,
-  hitungDurasi, showToast, setLoading, getMonthYear, getTodayString
+  hitungDurasi, showToast, setLoading, getTodayString
 } from './utils.js';
 
 // ============================================================
