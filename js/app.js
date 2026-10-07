@@ -114,7 +114,16 @@ async function initApp() {
   showView('loading');
   try {
     await authService.init();
-    if (!authService.isLoggedIn()) { showView('login'); return; }
+    if (!authService.isLoggedIn()) {
+      showView('login');
+      const e = authService.redirectError;
+      if (e) {
+        const el = document.getElementById('login-error');
+        el.textContent = `Login gagal: ${e.errorCode || e.name || 'error'} — ${e.errorMessage || e.message}`;
+        el.classList.remove('hidden');
+      }
+      return;
+    }
     await loadUserSession();
   } catch (err) {
     console.error('Init error:', err);

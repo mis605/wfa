@@ -9,9 +9,10 @@ class AuthService {
     this.msalInstance = null;
     this.currentAccount = null;
     this.initialized = false;
+    this.redirectError = null;
   }
 
-  // Deteksi apakah perangkat adalah HP (mobile) untuk menghindari popup login
+  // Deteksi apakah perangkat adalah HP (mobile), dipakai untuk fallback token
   isMobileDevice() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
   }
@@ -35,6 +36,7 @@ class AuthService {
       }
     } catch (error) {
       console.error('Error handling redirect:', error);
+      this.redirectError = error;
     }
 
     // Cek akun yang sudah login
@@ -55,27 +57,9 @@ class AuthService {
       prompt: "select_account",
     };
 
-    if (this.isMobileDevice()) {
-      // HP: Hindari popup dan langsung gunakan redirect login
-      await this.msalInstance.loginRedirect(loginRequest);
-      return null;
-    }
-
-    try {
-      // Laptop/Desktop: Gunakan popup login
-      const response = await this.msalInstance.loginPopup(loginRequest);
-      this.currentAccount = response.account;
-      this.msalInstance.setActiveAccount(response.account);
-      return response.account;
-    } catch (popupError) {
-      if (popupError.errorCode === "popup_window_error" || 
-          popupError.errorCode === "empty_window_error") {
-        // Fallback ke redirect jika popup terblokir oleh peramban
-        await this.msalInstance.loginRedirect(loginRequest);
-      } else {
-        throw popupError;
-      }
-    }
+    // Semua perangkat: redirect (popup sering diblokir peramban, mis. Safari/macOS)
+    await this.msalInstance.loginRedirect(loginRequest);
+    return null;
   }
 
   async logout() {
@@ -86,18 +70,8 @@ class AuthService {
       postLogoutRedirectUri: APP_CONFIG.redirectUri,
     };
 
-    if (this.isMobileDevice()) {
-      // HP: Gunakan redirect logout
-      await this.msalInstance.logoutRedirect(logoutRequest);
-    } else {
-      // Laptop: Gunakan popup logout
-      try {
-        await this.msalInstance.logoutPopup(logoutRequest);
-      } catch {
-        await this.msalInstance.logoutRedirect(logoutRequest);
-      }
-    }
-    
+    await this.msalInstance.logoutRedirect(logoutRequest);
+
     this.currentAccount = null;
   }
 
